@@ -1,0 +1,35 @@
+{
+    "slots": [
+        {
+            "player_name": "Zoltan",
+            "player_x": 612,
+            "player_y": 152,
+            "settings": {
+                "resolution": [
+                    1280,
+                    720
+                ],
+                "fullscreen": false,
+                "volume": 100
+            },
+            "saved_at": "2026-05-19T14:41:21.315657Z"
+        },
+        {
+            "player_name": "Kaito",
+            "player_x": 640,
+            "player_y": 360,
+            "settings": {
+                "resolution": [
+                    1280,
+                    720
+                ],
+                "fullscreen": false,
+                "volume": 100
+            },
+            "saved_at": "2026-05-19T14:41:02.419893Z"
+        },
+        null,
+        null,
+        null
+    ]
+}
