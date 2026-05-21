@@ -10,10 +10,33 @@ class MenuSystem:
 
         self.options = ["Start", "Load", "Settings", "Quit"]
 
-        self.buttons = []  # store rects for clicking
+        # LOAD BUTTON IMAGES
+        self.button_imgs = {
+            "Start": pygame.image.load("assets/ui/start-btn.png").convert_alpha(),
+            "Load": pygame.image.load("assets/ui/load-btn.png").convert_alpha(),
+            "Settings": pygame.image.load("assets/ui/settings-btn.png").convert_alpha(),
+            "Quit": pygame.image.load("assets/ui/quit-btn.png").convert_alpha(),
+        }
 
-        self.color_active = (255, 255, 255)
-        self.color_inactive = (120, 120, 120)
+        self.button_hover_imgs = {
+            "Start": pygame.image.load("assets/ui/start-hover.png").convert_alpha(),
+            "Load": pygame.image.load("assets/ui/load-hover.png").convert_alpha(),
+            "Settings": pygame.image.load("assets/ui/settings-hover.png").convert_alpha(),
+            "Quit": pygame.image.load("assets/ui/quit-hover.png").convert_alpha(),
+        }
+
+        # RESIZE BUTTONS
+        for key in self.button_imgs:
+            self.button_imgs[key] = pygame.transform.smoothscale(
+                self.button_imgs[key], (190, 130)
+            )
+
+        for key in self.button_hover_imgs:
+            self.button_hover_imgs[key] = pygame.transform.smoothscale(
+                self.button_hover_imgs[key], (190, 130)
+            )
+
+        self.buttons = []
 
         self.setup_buttons()
 
@@ -24,15 +47,14 @@ class MenuSystem:
 
         self.buttons = []
 
-        start_y = 250
-
+        start_y = 350
         screen_center_x = self.screen.get_width() // 2
 
         for i, option in enumerate(self.options):
 
-            text = self.font.render(option, True, (255, 255, 255))
-
-            rect = text.get_rect(center=(screen_center_x, start_y + i * 60))
+            rect = self.button_imgs[option].get_rect(
+                center=(screen_center_x, start_y + i * 90)
+            )
 
             self.buttons.append((option, rect))
 
@@ -43,14 +65,13 @@ class MenuSystem:
 
         if event.type == pygame.MOUSEBUTTONDOWN:
 
-            if event.button == 1:  # LEFT CLICK
+            if event.button == 1:
 
                 mouse_pos = pygame.mouse.get_pos()
 
                 for option, rect in self.buttons:
 
                     if rect.collidepoint(mouse_pos):
-
                         return option
 
         return None
@@ -64,12 +85,11 @@ class MenuSystem:
 
         for option, rect in self.buttons:
 
-            # hover effect
+            # HOVER CHECK
             if rect.collidepoint(mouse_pos):
-                color = self.color_active
+                button_img = self.button_hover_imgs[option]
             else:
-                color = self.color_inactive
+                button_img = self.button_imgs[option]
 
-            text = self.font.render(option, True, color)
-
-            self.screen.blit(text, rect)
+            # DRAW BUTTON IMAGE
+            self.screen.blit(button_img, rect)
