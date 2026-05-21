@@ -13,11 +13,9 @@ class MainMenu:
             50
         )
 
-
         # LOAD BACKGROUND
-
         self.bg = pygame.image.load(
-            "assets/maps/menu_bg.png"
+            "assets/ui/menu-background-img.jpg"
         ).convert()
 
         # Screen size from the passed surface
@@ -29,14 +27,25 @@ class MainMenu:
             (self.screen_w, self.screen_h)
         )
 
+        # LOAD LOGO
+        self.logo = pygame.image.load(
+            "assets/ui/game-logo.png"
+        ).convert_alpha()
+
+        # RESIZE LOGO
+        self.logo = pygame.transform.smoothscale(
+            self.logo,
+            (450, 450)
+        )
 
         # MENU SYSTEM
-
         self.menu = MenuSystem(self.font, self.screen)
+
         # PLAY MENU BGM (looping)
         try:
             pygame.mixer.music.load("assets/sfx/Pirates Of The Caribbean Theme Song.mp3")
             pygame.mixer.music.play(-1)
+
         except Exception as e:
             print(f"MainMenu BGM error: {e}")
 
@@ -66,32 +75,18 @@ class MainMenu:
     # DRAW
     def draw(self):
 
-
         # DRAW BACKGROUND FULLSCREEN
         self.screen.blit(self.bg, (0, 0))
 
         # DARK OVERLAY (JRPG STYLE READABILITY)
-
         overlay = pygame.Surface((self.screen_w, self.screen_h))
         overlay.set_alpha(120)
         overlay.fill((0, 0, 0))
         self.screen.blit(overlay, (0, 0))
 
-
-        # TITLE
-
-        title = self.font.render(
-            "Pirate Adventure",
-            True,
-            (143, 205, 217)
-        )
-
-        center_x = self.screen.get_width() // 2
-
-        self.screen.blit(
-            title,
-            title.get_rect(center=(center_x, 120))
-        )
+        # DRAW LOGO
+        logo_rect = self.logo.get_rect(center=(self.screen_w // 2, 180))
+        self.screen.blit(self.logo, logo_rect)
 
         # MENU DRAW
         self.menu.draw()
