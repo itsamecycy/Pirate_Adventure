@@ -3,7 +3,7 @@ import pygame
 
 class SettingsSystem:
 
-    def __init__(self, screen, initial_resolution=None, fullscreen=False, volume=100):
+    def __init__(self, screen, initial_resolution=None, fullscreen=False, volume=None):
         self.screen = screen
         self.fullscreen = fullscreen
         self.available_resolutions = [
@@ -22,7 +22,15 @@ class SettingsSystem:
                 else 0
             )
 
-        self.volume = max(0, min(100, volume))
+        # If volume not provided, try to read current mixer music volume
+        if volume is None:
+            try:
+                current = pygame.mixer.music.get_volume() * 100
+                self.volume = max(0, min(100, int(current)))
+            except Exception:
+                self.volume = 100
+        else:
+            self.volume = max(0, min(100, volume))
         self.apply_display_mode()
         self.set_volume(self.volume)
         # SFX volume (stored separately from music)

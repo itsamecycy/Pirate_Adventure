@@ -159,6 +159,17 @@ class BattleScene:
                 self.player_anim_state = "idle"
                 self.player_frame_index = 0
 
+        # update enemy animation/state
+        try:
+            if hasattr(self.enemy_entity, 'update'):
+                self.enemy_entity.update()
+            else:
+                # if entity has animate method, call it
+                if hasattr(self.enemy_entity, 'animate'):
+                    self.enemy_entity.animate()
+        except Exception:
+            pass
+
         # enemy turn handling
         if self.turn == "enemy":
             # simple delay

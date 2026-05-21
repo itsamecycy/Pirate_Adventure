@@ -1,3 +1,4 @@
+import os
 import pygame
 
 
@@ -8,7 +9,18 @@ class EnemyDemon:
         # Animation settings
         self.frame_width = 64
         self.frame_height = 64
+        # base animation speed (frames per update increment)
         self.animation_speed = 0.12
+
+        # per-state animation speeds (frames per update)
+        # we'll set idle to 10 FPS assuming a 60 FPS main loop -> 10/60 = 0.1667
+        self.animation_speeds = {
+            "idle": 10.0 / 60.0,
+            "attack": 0.12,
+            "flying": 0.12,
+            "hurt": 0.12,
+            "death": 0.12,
+        }
 
         self.frame_index = 0
         self.current_animation = []
@@ -20,10 +32,27 @@ class EnemyDemon:
 
         # Load sheets (use outline versions)
         base = "assets/enemy_demon/with_outline/"
-        try:
-            self.idle_sheet = pygame.image.load(base + "IDLE.png").convert_alpha()
-        except Exception:
-            self.idle_sheet = None
+        # prefer individual idle frames if present (demon_idle-1..n)
+        self.idle_sheet = None
+        idle_seq = []
+        for i in range(1, 9):
+            path = os.path.join(base, f"demon_idle-{i}.png")
+            if os.path.exists(path):
+                try:
+                    idle_seq.append(pygame.image.load(path).convert_alpha())
+                except Exception:
+                    continue
+            else:
+                break
+
+        if not idle_seq:
+            try:
+                self.idle_sheet = pygame.image.load(base + "IDLE.png").convert_alpha()
+            except Exception:
+                self.idle_sheet = None
+        else:
+            # if we loaded separate images, store them in a list and will use directly
+            self.idle_seq = idle_seq
 
         try:
             self.attack_sheet = pygame.image.load(base + "ATTACK.png").convert_alpha()
@@ -46,7 +75,22 @@ class EnemyDemon:
             self.death_sheet = None
 
         # Extract frames
-        self.idle = self.load_frames(self.idle_sheet)
+        if hasattr(self, 'idle_seq') and self.idle_seq:
+            # center/crop each image to frame size
+            frames = []
+            for surf in self.idle_seq:
+                try:
+                    cropped = self.crop_alpha(surf)
+                except Exception:
+                    cropped = surf
+                target = pygame.Surface((self.frame_width, self.frame_height), pygame.SRCALPHA)
+                x = (self.frame_width - cropped.get_width()) // 2
+                y = (self.frame_height - cropped.get_height()) // 2
+                target.blit(cropped, (x, y))
+                frames.append(target)
+            self.idle = frames
+        else:
+            self.idle = self.load_frames(self.idle_sheet)
         self.attack = self.load_frames(self.attack_sheet)
         self.flying = self.load_frames(self.flying_sheet)
         self.hurt = self.load_frames(self.hurt_sheet)
@@ -97,12 +141,16 @@ class EnemyDemon:
 
     def animate(self):
         animation = self.current_animation
+
         if animation != self.last_animation:
             self.frame_index = 0
             self.last_animation = animation
 
+        # choose per-state speed, fallback to default
+        speed = self.animation_speeds.get(self.state, self.animation_speed)
+
         if len(animation) > 1:
-            self.frame_index += self.animation_speed
+            self.frame_index += speed
             if self.frame_index >= len(animation):
                 # loop idle/flying/attack; on death stay on last frame
                 if self.state == "death":

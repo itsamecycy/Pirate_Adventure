@@ -33,6 +33,8 @@ class PauseMenu:
 
         self.status_message = "Paused"
         self.status_timer = 0
+        # ensure pause options reflect current encounter state
+        self.update_pause_options()
 
     def refresh_slots(self):
         self.slots = self.save_data.get_slot_list()
@@ -42,6 +44,22 @@ class PauseMenu:
     def set_status(self, text):
         self.status_message = text
         self.status_timer = pygame.time.get_ticks()
+
+    def update_pause_options(self):
+        # dynamic label for encounters
+        combat = getattr(self.overworld, 'combat', None)
+        encounters_on = True if combat is None else getattr(combat, 'enabled', True)
+        enc_label = "Encounters: On" if encounters_on else "Encounters: Off"
+        self.pause_system.options = [
+            "Resume",
+            "Save Slot",
+            "Load Slot",
+            "Delete Slot",
+            enc_label,
+            "Settings",
+            "Quit to Menu"
+        ]
+        self.pause_system.build_buttons()
 
     def slot_label(self, index):
         slot = self.slots[index]
@@ -228,6 +246,21 @@ class PauseMenu:
             self.overworld.screen = self.screen
             self.overworld.screen_w, self.overworld.screen_h = self.screen.get_size()
             return ("switch_scene", self.overworld)
+
+        if option and option.startswith("Encounters"):
+            combat = getattr(self.overworld, 'combat', None)
+            if combat:
+                new_state = not getattr(combat, 'enabled', True)
+                # prefer API if available
+                if hasattr(combat, 'set_encounters_enabled'):
+                    combat.set_encounters_enabled(new_state)
+                else:
+                    combat.enabled = new_state
+                self.update_pause_options()
+                self.set_status("Encounters disabled" if not new_state else "Encounters enabled")
+            else:
+                self.set_status("No combat system")
+            return None
 
         if option == "Save Slot":
             self.mode = "save"

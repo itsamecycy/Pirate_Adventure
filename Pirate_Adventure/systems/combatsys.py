@@ -25,6 +25,8 @@ class CombatSystem:
 
         # build weighted list for random selection
         self._build_weighted()
+        # encounters enabled flag (can be toggled to disable random encounters)
+        self.enabled = True
 
     def _build_weighted(self):
         self._choices = []
@@ -37,6 +39,10 @@ class CombatSystem:
 
     def player_step(self, player_x, player_y):
         """Call when player moves. Returns enemy instance on encounter, else None."""
+        # if encounters are disabled, never spawn
+        if not getattr(self, "enabled", True):
+            return None
+
         self.step_counter += 1
         if self.step_counter < self.steps_per_check:
             return None
@@ -62,6 +68,15 @@ class CombatSystem:
 
     def change_encounter_chance(self, delta):
         self.set_encounter_chance(self.encounter_chance + delta)
+
+    def set_encounters_enabled(self, enabled: bool):
+        """Enable or disable random encounters."""
+        self.enabled = bool(enabled)
+
+    def toggle_encounters(self):
+        """Toggle encounters on/off and return the new state."""
+        self.enabled = not getattr(self, "enabled", True)
+        return self.enabled
 
     # -------------------------
     # Combat action helpers
