@@ -105,6 +105,7 @@ This project is made for educational and experimental purposes only.
 
 Created by:
 [itsamecycy](https://github.com/itsamecycy)
+[zensu-beans](https://github.com/zensu-beans)
 
 ## ⭐ Support
 
