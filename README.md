@@ -82,10 +82,9 @@ python main.py
 
 ## 📸 Screenshots
 
-Add your screenshots here:
 
 ```md
-![Gameplay Screenshot](path/to/image.png)
+![Gameplay Screenshot](Pirate_Adventure/assets/maps/final_area.png)
 ```
 
 ## 📖 Future Improvements
@@ -112,4 +111,4 @@ Created by:
 If you like this project, consider starring the repository on GitHub!
 
 
-#ASSETS CAME FROM dsink485@gmail.com, mattz.pixel@gmail.com 
+#ASSETS CAME FROM dsink485@gmail.com, mattz.pixel@gmail.com itch.io
