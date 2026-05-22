@@ -11,6 +11,9 @@ class Player:
         # FRAME / ANIMATION
         self.frame_width = 64
         self.frame_height = 64
+        self.scale = 1.1
+        self.image_width = int(self.frame_width * self.scale)
+        self.image_height = int(self.frame_height * self.scale)
         self.animation_speed = 0.15
         self.frame_index = 0.0
 
@@ -48,6 +51,15 @@ class Player:
         if not self.run_right:
             self.run_right = [pygame.Surface((self.frame_width, self.frame_height), pygame.SRCALPHA)]
 
+        # player status / resources
+        self.max_hp = 120
+        self.hp = 120
+        self.max_mp = 40
+        self.mp = 40
+        self.items = {"Potion": 2}
+        self.skills = ["Fireball"]
+        self.status_effects = ["Healthy"]
+
         # start state
         self.current_animation = self.idle_front
         self.image = self.current_animation[0]
@@ -59,8 +71,9 @@ class Player:
             rect = pygame.Rect(i * self.frame_width, 0, self.frame_width, self.frame_height)
             try:
                 frame = sheet.subsurface(rect).copy()
+                frame = pygame.transform.smoothscale(frame, (self.image_width, self.image_height))
             except Exception:
-                frame = pygame.Surface((self.frame_width, self.frame_height), pygame.SRCALPHA)
+                frame = pygame.Surface((self.image_width, self.image_height), pygame.SRCALPHA)
             frames.append(frame)
         return frames
 
@@ -92,11 +105,12 @@ class Player:
                 x = (self.frame_width - frame.get_width()) // 2
                 y = (self.frame_height - frame.get_height()) // 2
                 target.blit(frame, (x, y))
+                target = pygame.transform.smoothscale(target, (self.image_width, self.image_height))
                 frames.append(target)
             except Exception:
                 continue
         if not frames:
-            frames = [pygame.Surface((self.frame_width, self.frame_height), pygame.SRCALPHA)]
+            frames = [pygame.Surface((self.image_width, self.image_height), pygame.SRCALPHA)]
         return frames
 
     # MOVEMENT

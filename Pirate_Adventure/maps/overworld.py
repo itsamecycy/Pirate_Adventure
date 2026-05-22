@@ -81,6 +81,7 @@ class Overworld:
     def update(self):
         self.screen_w, self.screen_h = self.screen.get_size()
         old_center = self.player.rect.center
+        old_rect = self.player.rect.copy()
         self.player.update()
 
         # detect movement and roll for encounters

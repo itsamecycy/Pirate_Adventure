@@ -52,6 +52,7 @@ class PauseMenu:
         enc_label = "Encounters: On" if encounters_on else "Encounters: Off"
         self.pause_system.options = [
             "Resume",
+            "Resources",
             "Save Slot",
             "Load Slot",
             "Delete Slot",
@@ -87,6 +88,13 @@ class PauseMenu:
             "player_name": self.overworld.player_name,
             "player_x": self.overworld.player.rect.centerx,
             "player_y": self.overworld.player.rect.centery,
+            "player_hp": getattr(self.overworld.player, 'hp', 120),
+            "player_max_hp": getattr(self.overworld.player, 'max_hp', 120),
+            "player_mp": getattr(self.overworld.player, 'mp', 40),
+            "player_max_mp": getattr(self.overworld.player, 'max_mp', 40),
+            "player_items": getattr(self.overworld.player, 'items', {}),
+            "player_skills": getattr(self.overworld.player, 'skills', []),
+            "player_status": getattr(self.overworld.player, 'status_effects', ['Healthy']),
             "settings": {
                 "resolution": self.settings_system.current_resolution(),
                 "fullscreen": self.settings_system.fullscreen,
@@ -122,6 +130,13 @@ class PauseMenu:
             saved.get("player_x", self.overworld.player.rect.centerx),
             saved.get("player_y", self.overworld.player.rect.centery),
         )
+        new_overworld.player.hp = saved.get("player_hp", getattr(new_overworld.player, 'hp', 120))
+        new_overworld.player.max_hp = saved.get("player_max_hp", getattr(new_overworld.player, 'max_hp', 120))
+        new_overworld.player.mp = saved.get("player_mp", getattr(new_overworld.player, 'mp', 40))
+        new_overworld.player.max_mp = saved.get("player_max_mp", getattr(new_overworld.player, 'max_mp', 40))
+        new_overworld.player.items = saved.get("player_items", getattr(new_overworld.player, 'items', {}))
+        new_overworld.player.skills = saved.get("player_skills", getattr(new_overworld.player, 'skills', []))
+        new_overworld.player.status_effects = saved.get("player_status", getattr(new_overworld.player, 'status_effects', ['Healthy']))
         player_name = saved.get("player_name", self.overworld.player_name)
         return ("start_loading", player_name, lambda: new_overworld)
 
@@ -134,6 +149,37 @@ class PauseMenu:
         self.refresh_slots()
         self.set_status(f"Deleted slot {index + 1}")
         return None
+
+    def get_player_status_lines(self):
+        player = getattr(self.overworld, 'player', None)
+        hp = getattr(player, 'hp', 120)
+        max_hp = getattr(player, 'max_hp', 120)
+        mp = getattr(player, 'mp', 40)
+        max_mp = getattr(player, 'max_mp', 40)
+        items = getattr(player, 'items', {}) or {}
+        skills = getattr(player, 'skills', []) or []
+        status = getattr(player, 'status_effects', ['Healthy']) or ['Healthy']
+
+        lines = [
+            f"Name: {self.overworld.player_name}",
+            f"HP: {hp}/{max_hp}",
+            f"MP: {mp}/{max_mp}",
+            f"Status: {', '.join(status)}",
+            "",
+            "Skills:",
+        ]
+        if skills:
+            lines.extend([f"  - {skill}" for skill in skills])
+        else:
+            lines.append("  None")
+
+        lines.append("")
+        lines.append("Items:")
+        if items:
+            lines.extend([f"  - {name}: {qty}" for name, qty in items.items()])
+        else:
+            lines.append("  None")
+        return lines
 
     # INPUT
     def handle_events(self, event):
@@ -262,6 +308,10 @@ class PauseMenu:
                 self.set_status("No combat system")
             return None
 
+        if option == "Resources":
+            self.mode = "resources"
+            return None
+
         if option == "Save Slot":
             self.mode = "save"
             self.selected_slot = 0
@@ -347,6 +397,17 @@ class PauseMenu:
                 for i, line in enumerate(setting_lines):
                     option_text = self.small_font.render(line, True, (180, 180, 180))
                     self.screen.blit(option_text, option_text.get_rect(center=(center_x, 220 + i * 40)))
+            elif self.mode == "resources":
+                status_lines = self.get_player_status_lines()
+                for i, line in enumerate(status_lines):
+                    option_text = self.small_font.render(line, True, (200, 200, 220) if line and not line.startswith('  -') else (180, 180, 180))
+                    self.screen.blit(option_text, option_text.get_rect(topleft=(80, 220 + i * 34)))
+                instructions = self.small_font.render(
+                    "ESC return",
+                    True,
+                    (160, 160, 160)
+                )
+                self.screen.blit(instructions, instructions.get_rect(center=(center_x, self.screen.get_height() - 80)))
             else:
                 base_y = 220
                 self.slot_rects = []

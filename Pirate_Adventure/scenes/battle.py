@@ -1,3 +1,5 @@
+import os
+import re
 import pygame
 import random
 from systems.combatsys import CombatSystem
@@ -44,22 +46,26 @@ class BattleScene:
         self.font = pygame.font.Font("assets/fonts/Pixeltype.ttf", 28)
         self.title_font = pygame.font.Font("assets/fonts/Pixeltype.ttf", 40)
 
-        # player attack animation frames (use ATTACK 1 down sheet)
+        # player attack animation frames
         self.frame_width = 64
         self.frame_height = 64
-        self.player_attack_frames = []
-        try:
-            atk_sheet = pygame.image.load("assets/player1/ATTACK 1/attack1_down.png").convert_alpha()
-            cols = max(1, atk_sheet.get_width() // self.frame_width)
-            for i in range(cols):
-                f = atk_sheet.subsurface(pygame.Rect(i * self.frame_width, 0, self.frame_width, self.frame_height)).copy()
-                self.player_attack_frames.append(f)
-        except Exception:
-            self.player_attack_frames = []
+        self.player_attack1_frames = self.load_attack_frames(os.path.join("assets", "player1", "ATTACK 1"), "attack1")
+        self.player_attack2_frames = self.load_attack_frames(os.path.join("assets", "player1", "ATTACK 2"), "attack2")
+        raw_idle = getattr(self.player_entity, "idle_right", []) if self.player_entity else []
+        if len(raw_idle) >= 8:
+            stable_indices = [0, 4]
+            self.player_idle_frames = [raw_idle[i] for i in stable_indices if i < len(raw_idle)]
+        else:
+            self.player_idle_frames = raw_idle
 
         self.player_anim_state = "idle"
-        self.player_frame_index = 0
-        self.player_anim_speed = 0.18
+        self.player_frame_index = 0.0
+        self.player_idle_index = 0.0
+        self.player_anim_speed = 14 / 60.0
+        self.player_idle_speed = 12 / 60.0
+        self.player_action = None
+        self.skill_menu_open = False
+        self.skill_options = ["Fireball", "Double Slash", "Back"]
 
         # menu rects for mouse interaction
         self.menu_rects = []
@@ -104,12 +110,18 @@ class BattleScene:
     def execute_choice(self, choice):
         self.message_timer = pygame.time.get_ticks()
         if choice == "Attack":
-            # play attack animation and apply damage
-            self.player_anim_state = "attack"
-            self.player_frame_index = 0
-            dmg = self.combat.attack(self.player, self.enemy_entity)
-            self.message = f"You attack for {dmg} damage."
-            self.turn = "enemy"
+            if not self.player_attack1_frames:
+                dmg = self.combat.attack(self.player, self.enemy_entity)
+                self.message = f"You attack for {dmg} damage."
+                self.turn = "enemy"
+                return None
+
+            self.player_action = "attack"
+            self.player_anim_state = "attack1"
+            self.player_frame_index = 0.0
+            self.player_idle_index = 0.0
+            self.message = "You slash the enemy."
+            self.turn = "busy"
             return None
 
         if choice == "Defend":
@@ -119,9 +131,51 @@ class BattleScene:
             return None
 
         if choice == "Skills":
-            ok, msg, val = self.combat.skill(self.player, self.enemy_entity, name="fireball")
-            self.message = msg
-            self.turn = "enemy"
+            self.menu_options = self.skill_options
+            self.selected = 0
+            return None
+
+        if choice == "Fireball":
+            cost = 8
+            if self.player["mp"] < cost:
+                self.message = "Not enough MP for Fireball."
+                self.turn = "player"
+                return None
+            self.player["mp"] -= cost
+            self.player_action = "fireball"
+            self.player_anim_state = "attack1"
+            self.player_frame_index = 0.0
+            self.player_idle_index = 0.0
+            self.message = "You cast Fireball!"
+            self.turn = "busy"
+            self.menu_options = ["Attack", "Defend", "Skills", "Item", "Run"]
+            self.selected = 0
+            return None
+
+        if choice == "Double Slash":
+            cost = 10
+            if self.player["mp"] < cost:
+                self.message = "Not enough MP for Double Slash."
+                self.turn = "player"
+                return None
+            if not self.player_attack2_frames:
+                self.message = "Double Slash unavailable."
+                self.turn = "player"
+                return None
+            self.player["mp"] -= cost
+            self.player_action = "double_slash"
+            self.player_anim_state = "attack1"
+            self.player_frame_index = 0.0
+            self.player_idle_index = 0.0
+            self.message = "You prepare Double Slash!"
+            self.turn = "busy"
+            self.menu_options = ["Attack", "Defend", "Skills", "Item", "Run"]
+            self.selected = 0
+            return None
+
+        if choice == "Back":
+            self.menu_options = ["Attack", "Defend", "Skills", "Item", "Run"]
+            self.selected = 0
             return None
 
         if choice == "Item":
@@ -140,6 +194,50 @@ class BattleScene:
                 self.turn = "enemy"
                 return None
 
+    def load_attack_frames(self, folder, prefix):
+        frames = []
+        try:
+            if not os.path.isdir(folder):
+                return frames
+            candidates = []
+            for fname in sorted(os.listdir(folder)):
+                lname = fname.lower()
+                if not lname.endswith(".png"):
+                    continue
+                if prefix not in lname or "right" not in lname:
+                    continue
+                candidates.append(fname)
+
+            def sort_key(name):
+                digits = re.findall(r"(\d+)", name)
+                return int(digits[-1]) if digits else 0
+
+            sheet_files = [name for name in candidates if '-' not in os.path.splitext(name)[0]]
+            numbered = [name for name in candidates if name not in sheet_files]
+            use_candidates = sheet_files if sheet_files else numbered
+            use_candidates.sort(key=sort_key)
+
+            for fname in use_candidates:
+                path = os.path.join(folder, fname)
+                sheet = pygame.image.load(path).convert_alpha()
+                sheet_w, sheet_h = sheet.get_size()
+                frame_width = self.frame_width
+                frame_height = sheet_h
+
+                if sheet_w % 8 == 0 and sheet_h > 0:
+                    frame_width = sheet_w // 8
+
+                if frame_width > 0 and frame_height > 0 and sheet_w >= frame_width:
+                    cols = sheet_w // frame_width
+                    for i in range(cols):
+                        frame = sheet.subsurface(pygame.Rect(i * frame_width, 0, frame_width, frame_height)).copy()
+                        frames.append(frame)
+                else:
+                    frames.append(pygame.transform.smoothscale(sheet, (self.frame_width, self.frame_height)))
+        except Exception:
+            pass
+        return frames
+
     # UPDATE
     def update(self):
         # check end conditions
@@ -151,20 +249,43 @@ class BattleScene:
             self.message = "You were defeated..."
             return "back_to_menu"
 
-        # player animation update (attack)
-        if self.player_anim_state == "attack":
+        if self.player_anim_state == "attack1":
             self.player_frame_index += self.player_anim_speed
-            if self.player_frame_index >= len(self.player_attack_frames):
-                # animation finished
+            if self.player_frame_index >= len(self.player_attack1_frames):
+                if self.player_action == "double_slash":
+                    self.player_anim_state = "attack2"
+                    self.player_frame_index = 0.0
+                    self.message = "Double Slash!"
+                    self.message_timer = pygame.time.get_ticks()
+                else:
+                    dmg = self.combat.attack(self.player, self.enemy_entity)
+                    self.message = f"You hit for {dmg} damage."
+                    self.player_anim_state = "idle"
+                    self.player_frame_index = 0.0
+                    self.player_idle_index = 0.0
+                    self.player_action = None
+                    self.turn = "enemy"
+        elif self.player_anim_state == "attack2":
+            self.player_frame_index += self.player_anim_speed
+            if self.player_frame_index >= len(self.player_attack2_frames):
+                dmg = self.combat.attack(self.player, self.enemy_entity, power_range=(16, 28))
+                self.message = f"Double Slash hits for {dmg} damage."
                 self.player_anim_state = "idle"
-                self.player_frame_index = 0
+                self.player_frame_index = 0.0
+                self.player_idle_index = 0.0
+                self.player_action = None
+                self.turn = "enemy"
+        else:
+            if self.player_idle_frames:
+                self.player_idle_index += self.player_idle_speed
+                if self.player_idle_index >= len(self.player_idle_frames):
+                    self.player_idle_index = 0.0
 
         # update enemy animation/state
         try:
             if hasattr(self.enemy_entity, 'update'):
                 self.enemy_entity.update()
             else:
-                # if entity has animate method, call it
                 if hasattr(self.enemy_entity, 'animate'):
                     self.enemy_entity.animate()
         except Exception:
@@ -172,7 +293,6 @@ class BattleScene:
 
         # enemy turn handling
         if self.turn == "enemy":
-            # simple delay
             if pygame.time.get_ticks() - self.message_timer < 600:
                 return None
 
@@ -207,13 +327,24 @@ class BattleScene:
 
         # player on left (use attack animation when playing)
         player_img = None
-        if self.player_anim_state == "attack" and self.player_attack_frames:
-            idx = int(self.player_frame_index) % max(1, len(self.player_attack_frames))
-            player_img = self.player_attack_frames[idx]
+        if self.player_anim_state == "attack1" and self.player_attack1_frames:
+            idx = int(self.player_frame_index) % max(1, len(self.player_attack1_frames))
+            player_img = self.player_attack1_frames[idx]
+        elif self.player_anim_state == "attack2" and self.player_attack2_frames:
+            idx = int(self.player_frame_index) % max(1, len(self.player_attack2_frames))
+            player_img = self.player_attack2_frames[idx]
+        elif self.player_idle_frames:
+            idx = int(self.player_idle_index) % max(1, len(self.player_idle_frames))
+            player_img = self.player_idle_frames[idx]
         else:
             player_img = getattr(self.player_entity, "image", None)
 
         if player_img:
+            # Scale player up a bit more in combat so attack frames are visible
+            combat_scale = 1.8
+            scaled_w = int(player_img.get_width() * combat_scale)
+            scaled_h = int(player_img.get_height() * combat_scale)
+            player_img = pygame.transform.smoothscale(player_img, (scaled_w, scaled_h))
             player_rect = player_img.get_rect(center=(center_x - 220, self.screen.get_height() // 2 + 20))
             self.screen.blit(player_img, player_rect)
 
