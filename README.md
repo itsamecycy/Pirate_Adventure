@@ -85,6 +85,7 @@ python main.py
 
 
 ![Gameplay Screenshot](Pirate_Adventure/assets/maps/final_area.png)
+![Player 1 Attack Demo](Pirate_Adventure/assets/player1/demo_attack.gif)
 
 
 ## 📖 Future Improvements
@@ -105,6 +106,7 @@ This project is made for educational and experimental purposes only.
 Created by:
 [itsamecycy](https://github.com/itsamecycy)
 [zensu-beans](https://github.com/zensu-beans)
+
 
 ## ⭐ Support
 
