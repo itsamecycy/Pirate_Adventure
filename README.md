@@ -83,9 +83,9 @@ python main.py
 ## 📸 Screenshots
 
 
-```md
+
 ![Gameplay Screenshot](Pirate_Adventure/assets/maps/final_area.png)
-```
+
 
 ## 📖 Future Improvements
 
