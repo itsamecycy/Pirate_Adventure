@@ -1,5 +1,8 @@
+import os
 import pygame
 from sys import exit
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 from scenes.mainmenu import MainMenu
 from scenes.charcreation import CharacterCreation
