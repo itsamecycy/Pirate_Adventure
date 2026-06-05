@@ -2,6 +2,9 @@ import os
 import pygame
 
 
+#Implement other functions from other files
+#Add to battle.py and overworld.py
+
 class EnemyBoss:
 
     def __init__(self, x, y):
