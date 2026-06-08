@@ -54,6 +54,24 @@ class BattleScene:
         self.scroll = self.load_trimmed_image(os.path.join("assets", "ui", "scroll.png"))
         self.battleground = pygame.image.load(os.path.join("assets", "ui", "battleground.png")).convert()
         self.battleground = pygame.transform.smoothscale(self.battleground, (self.screen_w, self.screen_h))
+        # Sound effects
+        try:
+            self.gunshot_sfx = pygame.mixer.Sound(
+                os.path.join("assets", "sfx", "gunshot.mp3")
+            )
+            self.gunshot_sfx.set_volume(0.7)
+        except Exception as e:
+            print(f"Failed to load gunshot.mp3: {e}")
+            self.gunshot_sfx = None
+
+        try:
+            self.slash_sfx = pygame.mixer.Sound(
+                os.path.join("assets", "sfx", "Slash.mp3")
+            )
+            self.slash_sfx.set_volume(0.7)
+        except Exception as e:
+            print(f"Failed to load Slash.mp3: {e}")
+            self.slash_sfx = None
 
         # Change these values to resize or move the battle button frame.
         self.battle_frame_size = (260, 260)
@@ -153,7 +171,7 @@ class BattleScene:
             self.player_anim_state = "attack1"
             self.player_frame_index = 0.0
             self.player_idle_index = 0.0
-            self.set_message("You slash the enemy.")
+            self.set_message("You shot the enemy.")
             self.turn = "busy"
             return None
 
@@ -300,6 +318,10 @@ class BattleScene:
                     self.set_message("Double Slash!")
                     self.message_timer = pygame.time.get_ticks()
                 else:
+                    if self.gunshot_sfx:
+                        self.gunshot_sfx.stop()
+                        self.gunshot_sfx.play()
+
                     dmg = self.combat.attack(self.player, self.enemy_entity)
                     self.set_message(f"You hit for {dmg} damage.")
                     self.player_anim_state = "idle"
@@ -310,8 +332,18 @@ class BattleScene:
         elif self.player_anim_state == "attack2":
             self.player_frame_index += self.player_anim_speed
             if self.player_frame_index >= len(self.player_attack2_frames):
-                dmg = self.combat.attack(self.player, self.enemy_entity, power_range=(16, 28))
+
+                if self.slash_sfx:
+                    self.slash_sfx.stop()
+                    self.slash_sfx.play()
+
+                dmg = self.combat.attack(
+                    self.player,
+                    self.enemy_entity,
+                    power_range=(16, 28)
+                )
                 self.set_message(f"Double Slash hits for {dmg} damage.")
+                #Line
                 self.player_anim_state = "idle"
                 self.player_frame_index = 0.0
                 self.player_idle_index = 0.0
