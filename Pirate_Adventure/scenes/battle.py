@@ -3,6 +3,7 @@ import re
 import pygame
 import random
 from systems.combatsys import CombatSystem
+from systems.settingsys import SFX_VOLUME
 
 
 class BattleScene:
@@ -21,6 +22,8 @@ class BattleScene:
             "mp": 40,
             "defending": False,
             "items": {"potion": 2},
+            "attack_power": getattr(self.player_entity, "attack_power", (12, 20)),
+            "equipped_weapons": getattr(self.player_entity, "equipped_weapons", {"gun": None, "sword": None}),
         }
 
         # Enemy
@@ -46,6 +49,27 @@ class BattleScene:
 
         self.font = pygame.font.Font("assets/fonts/Pixeltype.ttf", 28)
         self.title_font = pygame.font.Font("assets/fonts/Pixeltype.ttf", 40)
+        self.small_font = pygame.font.Font("assets/fonts/Pixeltype.ttf", 22)
+        # load SFX
+        try:
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+        except Exception:
+            pass
+
+        def _load_sfx(base_name):
+            sfx_dir = os.path.join("assets", "sfx")
+            for ext in ("wav", "ogg", "mp3"):
+                path = os.path.join(sfx_dir, f"{base_name}.{ext}")
+                if os.path.exists(path):
+                    try:
+                        return pygame.mixer.Sound(path)
+                    except Exception:
+                        continue
+            return None
+
+        self.sfx_gunshot = _load_sfx("gunshot")
+        self.sfx_slash = _load_sfx("slash")
         self.healthbar_frame = self.load_trimmed_image(os.path.join("assets", "ui", "healthbar.png"))
         self.mpbar_frame = self.load_trimmed_image(os.path.join("assets", "ui", "mp-bar.png"))
         self.battle_frame = self.load_trimmed_image(os.path.join("assets", "ui", "battle-frame.png"))
@@ -54,24 +78,6 @@ class BattleScene:
         self.scroll = self.load_trimmed_image(os.path.join("assets", "ui", "scroll.png"))
         self.battleground = pygame.image.load(os.path.join("assets", "ui", "battleground.png")).convert()
         self.battleground = pygame.transform.smoothscale(self.battleground, (self.screen_w, self.screen_h))
-        # Sound effects
-        try:
-            self.gunshot_sfx = pygame.mixer.Sound(
-                os.path.join("assets", "sfx", "gunshot.mp3")
-            )
-            self.gunshot_sfx.set_volume(0.7)
-        except Exception as e:
-            print(f"Failed to load gunshot.mp3: {e}")
-            self.gunshot_sfx = None
-
-        try:
-            self.slash_sfx = pygame.mixer.Sound(
-                os.path.join("assets", "sfx", "Slash.mp3")
-            )
-            self.slash_sfx.set_volume(0.7)
-        except Exception as e:
-            print(f"Failed to load Slash.mp3: {e}")
-            self.slash_sfx = None
 
         # Change these values to resize or move the battle button frame.
         self.battle_frame_size = (260, 260)
@@ -117,9 +123,25 @@ class BattleScene:
         self.player_action = None
         self.skill_menu_open = False
         self.skill_options = ["Fireball", "Double Slash", "Back"]
+        self.double_slash_power = (16, 28)
 
         # menu rects for mouse interaction
         self.menu_rects = []
+        # initialize dynamic player state from the authoritative entity
+        try:
+            self.refresh_player_weapon_state()
+        except Exception:
+            pass
+
+    def refresh_player_weapon_state(self):
+        # sync dynamic player state from the entity so buffs persist into battle
+        self.player["attack_power"] = getattr(self.player_entity, "attack_power", (12, 20))
+        self.player["equipped_weapons"] = getattr(self.player_entity, "equipped_weapons", {"gun": None, "sword": None})
+        self.player["blessed"] = getattr(self.player_entity, "blessed", False)
+        self.player["max_hp"] = getattr(self.player_entity, "max_hp", self.player.get("max_hp", 120))
+        self.player["hp"] = getattr(self.player_entity, "hp", self.player.get("hp", 120))
+        self.player["max_mp"] = getattr(self.player_entity, "max_mp", self.player.get("max_mp", 40))
+        self.player["mp"] = getattr(self.player_entity, "mp", self.player.get("mp", 40))
 
     # INPUT
     def handle_events(self, event):
@@ -161,6 +183,7 @@ class BattleScene:
     def execute_choice(self, choice):
         self.message_timer = pygame.time.get_ticks()
         if choice == "Attack":
+            self.refresh_player_weapon_state()
             if not self.player_attack1_frames:
                 dmg = self.combat.attack(self.player, self.enemy_entity)
                 self.set_message(f"You attack for {dmg} damage.")
@@ -171,7 +194,7 @@ class BattleScene:
             self.player_anim_state = "attack1"
             self.player_frame_index = 0.0
             self.player_idle_index = 0.0
-            self.set_message("You shot the enemy.")
+            self.set_message("You slash the enemy.")
             self.turn = "busy"
             return None
 
@@ -213,6 +236,13 @@ class BattleScene:
                 self.set_message("Double Slash unavailable.")
                 self.turn = "player"
                 return None
+            self.refresh_player_weapon_state()
+            base_range = self.player["attack_power"]
+            sword = self.player.get("equipped_weapons", {}).get("sword")
+            if sword == "Cutlass":
+                self.double_slash_power = (base_range[0] + 4, base_range[1] + 8)
+            else:
+                self.double_slash_power = (max(12, base_range[0]), base_range[1] + 4)
             self.player["mp"] -= cost
             self.player_action = "double_slash"
             self.player_anim_state = "attack2"
@@ -232,6 +262,12 @@ class BattleScene:
         if choice == "Item":
             ok, msg, val = self.combat.use_item(self.player, "potion")
             self.set_message(msg)
+            # persist healed HP back to the player entity
+            try:
+                if hasattr(self.player_entity, 'hp'):
+                    self.player_entity.hp = int(self.player.get('hp', getattr(self.player_entity, 'hp', 0)))
+            except Exception:
+                pass
             self.turn = "enemy"
             return None
 
@@ -302,11 +338,39 @@ class BattleScene:
     def update(self):
         # check end conditions
         if getattr(self.enemy_entity, "hp", 0) <= 0:
+            # increment player's demon kill count when applicable
+            try:
+                from entities.enemy_demon import EnemyDemon
+                if isinstance(self.enemy_entity, EnemyDemon):
+                    try:
+                        # global counter
+                        self.player_entity.enemy_demon_kills += 1
+                        # quest counter increments only if quest active and not blessed
+                        if getattr(self.player_entity, 'quest_active', False) and not getattr(self.player_entity, 'blessed', False):
+                            self.player_entity.quest_demon_kills = getattr(self.player_entity, 'quest_demon_kills', 0) + 1
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             self.set_message("Enemy defeated!")
+            # ensure entity HP reflects current battle HP before exiting
+            try:
+                if hasattr(self.player_entity, 'hp'):
+                    self.player_entity.hp = int(self.player.get('hp', getattr(self.player_entity, 'hp', 0)))
+            except Exception:
+                pass
+            return ("switch_scene", self.return_scene)
             return ("switch_scene", self.return_scene)
 
         if self.player["hp"] <= 0:
             self.set_message("You were defeated...")
+            # persist death HP
+            try:
+                if hasattr(self.player_entity, 'hp'):
+                    self.player_entity.hp = int(self.player.get('hp', getattr(self.player_entity, 'hp', 0)))
+            except Exception:
+                pass
+            return "back_to_menu"
             return "back_to_menu"
 
         if self.player_anim_state == "attack1":
@@ -318,10 +382,13 @@ class BattleScene:
                     self.set_message("Double Slash!")
                     self.message_timer = pygame.time.get_ticks()
                 else:
-                    if self.gunshot_sfx:
-                        self.gunshot_sfx.stop()
-                        self.gunshot_sfx.play()
-
+                    # play gunshot SFX for attack if available
+                    try:
+                        if getattr(self, 'sfx_gunshot', None):
+                            self.sfx_gunshot.set_volume(max(0.0, min(1.0, SFX_VOLUME / 100)))
+                            self.sfx_gunshot.play()
+                    except Exception:
+                        pass
                     dmg = self.combat.attack(self.player, self.enemy_entity)
                     self.set_message(f"You hit for {dmg} damage.")
                     self.player_anim_state = "idle"
@@ -332,18 +399,15 @@ class BattleScene:
         elif self.player_anim_state == "attack2":
             self.player_frame_index += self.player_anim_speed
             if self.player_frame_index >= len(self.player_attack2_frames):
-
-                if self.slash_sfx:
-                    self.slash_sfx.stop()
-                    self.slash_sfx.play()
-
-                dmg = self.combat.attack(
-                    self.player,
-                    self.enemy_entity,
-                    power_range=(16, 28)
-                )
+                # play slash SFX for double slash if available
+                try:
+                    if getattr(self, 'sfx_slash', None):
+                        self.sfx_slash.set_volume(max(0.0, min(1.0, SFX_VOLUME / 100)))
+                        self.sfx_slash.play()
+                except Exception:
+                    pass
+                dmg = self.combat.attack(self.player, self.enemy_entity, power_range=self.double_slash_power)
                 self.set_message(f"Double Slash hits for {dmg} damage.")
-                #Line
                 self.player_anim_state = "idle"
                 self.player_frame_index = 0.0
                 self.player_idle_index = 0.0
@@ -373,6 +437,12 @@ class BattleScene:
             dmg = self.combat.attack(self.enemy_entity, self.player)
             self.set_message(f"Enemy hits for {dmg} damage.")
             self.message_timer = pygame.time.get_ticks()
+            # persist damage back to the player entity so battle state remains authoritative
+            try:
+                if hasattr(self.player_entity, 'hp'):
+                    self.player_entity.hp = int(self.player.get('hp', getattr(self.player_entity, 'hp', 0)))
+            except Exception:
+                pass
             self.turn = "player"
 
         return None
@@ -503,6 +573,16 @@ class BattleScene:
             label=f"MP {self.player['mp']} / {self.player['max_mp']}",
             frame_image=self.mpbar_frame,
         )
+
+        equipped = self.player.get("equipped_weapons", {"gun": None, "sword": None})
+        parts = []
+        if equipped.get("gun"):
+            parts.append(f"Gun: {equipped.get('gun')}")
+        if equipped.get("sword"):
+            parts.append(f"Sword: {equipped.get('sword')}")
+        if parts:
+            weapon_text = self.small_font.render(f"Weapons: {', '.join(parts)}", True, (210, 210, 255))
+            self.screen.blit(weapon_text, (30, 18 + 90 + 10 + 50))
 
         enemy_hp = int(getattr(self.enemy_entity, "hp", getattr(self.enemy_entity, "max_hp", 0)))
         enemy_max = int(getattr(self.enemy_entity, "max_hp", 1))

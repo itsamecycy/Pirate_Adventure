@@ -53,6 +53,7 @@ class PauseMenu:
         self.pause_system.options = [
             "Resume",
             "Resources",
+            "Equipment",
             "Save Slot",
             "Load Slot",
             "Delete Slot",
@@ -95,6 +96,7 @@ class PauseMenu:
             "player_items": getattr(self.overworld.player, 'items', {}),
             "player_skills": getattr(self.overworld.player, 'skills', []),
             "player_status": getattr(self.overworld.player, 'status_effects', ['Healthy']),
+            "player_equipped_weapons": getattr(self.overworld.player, 'equipped_weapons', {"gun": None, "sword": None}),
             "settings": {
                 "resolution": self.settings_system.current_resolution(),
                 "fullscreen": self.settings_system.fullscreen,
@@ -107,6 +109,71 @@ class PauseMenu:
             self.mode = None
         else:
             self.set_status("Unable to save slot")
+        return None
+
+    def get_equipment_options(self):
+        player = getattr(self.overworld, 'player', None)
+        if player is None:
+            return ["No equipable weapons"]
+
+        weapons = []
+        if hasattr(player, 'inventory_system'):
+            weapons = player.inventory_system.available_weapons()
+        else:
+            weapons = [name for name, qty in getattr(player, 'items', {}).items() if qty > 0 and name in ("Pistol", "Cutlass")]
+
+        options = [weapon for weapon in weapons if weapon]
+        equipped = getattr(player, 'equipped_weapons', {"gun": None, "sword": None})
+        if any(equipped.values()):
+            options.append("Unequip All")
+        if not options:
+            options = ["No equipable weapons"]
+        return options
+
+    def handle_equipment_action(self):
+        options = self.get_equipment_options()
+        if not options:
+            return None
+
+        selected = options[self.selected_slot % len(options)]
+        player = getattr(self.overworld, 'player', None)
+        if player is None:
+            self.set_status("No player found")
+            return None
+
+        if selected == "No equipable weapons":
+            self.set_status("No weapons available")
+            return None
+
+        if selected == "Unequip All":
+            ok, msg = player.unequip_weapon()
+        else:
+            ok, msg = player.equip_weapon(selected)
+
+        if hasattr(player, 'inventory_system'):
+            player.inventory_system.sync_from_owner()
+        self.set_status(msg)
+        return None
+
+    def apply_equipment_option(self, option):
+        """Equip/unequip the provided option string (called from mouse)."""
+        player = getattr(self.overworld, 'player', None)
+        if player is None:
+            self.set_status("No player found")
+            return None
+
+        if option == "No equipable weapons":
+            self.set_status("No weapons available")
+            return None
+
+        if option == "Unequip All":
+            ok, msg = player.unequip_weapon()
+        else:
+            ok, msg = player.equip_weapon(option)
+
+        if hasattr(player, 'inventory_system'):
+            player.inventory_system.sync_from_owner()
+        self.set_status(msg)
         return None
 
     def load_slot(self, index):
@@ -137,6 +204,8 @@ class PauseMenu:
         new_overworld.player.items = saved.get("player_items", getattr(new_overworld.player, 'items', {}))
         new_overworld.player.skills = saved.get("player_skills", getattr(new_overworld.player, 'skills', []))
         new_overworld.player.status_effects = saved.get("player_status", getattr(new_overworld.player, 'status_effects', ['Healthy']))
+        new_overworld.player.equipped_weapons = saved.get("player_equipped_weapons", getattr(new_overworld.player, 'equipped_weapons', {"gun": None, "sword": None}))
+        new_overworld.player.inventory_system.sync_from_owner()
         player_name = saved.get("player_name", self.overworld.player_name)
         return ("start_loading", player_name, lambda: new_overworld)
 
@@ -179,6 +248,12 @@ class PauseMenu:
             lines.extend([f"  - {name}: {qty}" for name, qty in items.items()])
         else:
             lines.append("  None")
+
+        equipped_weapons = getattr(player, 'equipped_weapons', {"gun": None, "sword": None})
+        lines.append("")
+        lines.append("Equipped:")
+        for category, weapon in equipped_weapons.items():
+            lines.append(f"  - {category.title()}: {weapon if weapon else 'None'}")
         return lines
 
     # INPUT
@@ -225,6 +300,18 @@ class PauseMenu:
                         return ("update_screen", new_screen)
                     return None
 
+                if self.mode == "equipment":
+                    options = self.get_equipment_options()
+                    if event.key == pygame.K_UP:
+                        self.selected_slot = (self.selected_slot - 1) % max(1, len(options))
+                        return None
+                    if event.key == pygame.K_DOWN:
+                        self.selected_slot = (self.selected_slot + 1) % max(1, len(options))
+                        return None
+                    if event.key == pygame.K_RETURN:
+                        return self.handle_equipment_action()
+                    return None
+
                 if event.key == pygame.K_UP:
                     self.selected_slot = (self.selected_slot - 1) % len(self.slots)
                     return None
@@ -233,6 +320,7 @@ class PauseMenu:
                     return None
                 if event.key == pygame.K_RETURN:
                     return self.handle_slot_action()
+
                 if event.key == pygame.K_DELETE and self.mode == "delete":
                     return self.delete_slot(self.selected_slot)
                 return None
@@ -285,6 +373,25 @@ class PauseMenu:
                     self.selected_slot = index
                     return self.handle_slot_action()
 
+        # equipment mouse handling: allow clicking to equip/unequip and hovering
+        if self.mode == "equipment":
+            options = self.get_equipment_options()
+            base_y = 200
+            mx, my = pygame.mouse.get_pos()
+            # determine hovered index
+            hovered = None
+            for idx, _ in enumerate(options):
+                item_rect = pygame.Rect(80, base_y + idx * 36, 300, 36)
+                if item_rect.collidepoint(mx, my):
+                    hovered = idx
+                    break
+
+            if hovered is not None:
+                self.selected_slot = hovered
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    option = options[hovered]
+                    return self.apply_equipment_option(option)
+
         return None
 
     def handle_selection(self, option):
@@ -310,6 +417,12 @@ class PauseMenu:
 
         if option == "Resources":
             self.mode = "resources"
+            return None
+
+        if option == "Equipment":
+            self.mode = "equipment"
+            self.selected_slot = 0
+            self.equipment_item_rects = []
             return None
 
         if option == "Save Slot":
@@ -408,6 +521,83 @@ class PauseMenu:
                     (160, 160, 160)
                 )
                 self.screen.blit(instructions, instructions.get_rect(center=(center_x, self.screen.get_height() - 80)))
+            elif self.mode == "equipment":
+                title = self.small_font.render("Equipment", True, (220, 220, 255))
+                self.screen.blit(title, title.get_rect(center=(center_x, 140)))
+
+                options = self.get_equipment_options()
+                base_y = 200
+                for idx, option in enumerate(options):
+                    color = (255, 255, 255) if idx == self.selected_slot else (180, 180, 180)
+                    if option == "Unequip All":
+                        eq = getattr(self.overworld.player, 'equipped_weapons', {"gun": None, "sword": None})
+                        parts = [f"{k.title()}: {v}" for k, v in eq.items() if v]
+                        line = f"{option} ({', '.join(parts) if parts else 'None'})"
+                    else:
+                        qty = getattr(self.overworld.player, 'items', {}).get(option, 0)
+                        line = f"{option} x{qty}"
+                    option_text = self.small_font.render(line, True, color)
+                    opt_rect = option_text.get_rect(topleft=(80, base_y + idx * 36))
+                    self.screen.blit(option_text, opt_rect)
+                    # store rect for hover/tooltips
+                    if not hasattr(self, 'equipment_item_rects'):
+                        self.equipment_item_rects = []
+                    # ensure list is same length
+                    if len(self.equipment_item_rects) <= idx:
+                        self.equipment_item_rects.extend([None] * (idx - len(self.equipment_item_rects) + 1))
+                    self.equipment_item_rects[idx] = opt_rect
+
+                eq = getattr(self.overworld.player, 'equipped_weapons', {"gun": None, "sword": None})
+                parts = [f"{k.title()}: {v}" for k, v in eq.items() if v]
+                status_line = self.small_font.render(
+                    f"Equipped: {', '.join(parts) if parts else 'None'}",
+                    True,
+                    (200, 200, 220)
+                )
+                self.screen.blit(status_line, status_line.get_rect(topleft=(80, base_y + len(options) * 36 + 24)))
+
+                instructions = self.small_font.render(
+                    "Click equip/unequip  ESC return",
+                    True,
+                    (160, 160, 160)
+                )
+                self.screen.blit(instructions, instructions.get_rect(center=(center_x, self.screen.get_height() - 80)))
+
+                # tooltip for hovered equipment
+                try:
+                    mx, my = pygame.mouse.get_pos()
+                    hovered = None
+                    for i, r in enumerate(getattr(self, 'equipment_item_rects', []) or []):
+                        if r and r.collidepoint(mx, my):
+                            hovered = i
+                            break
+                    if hovered is not None:
+                        opt = options[hovered]
+                        player = getattr(self.overworld, 'player', None)
+                        tooltip = None
+                        if opt in ("Pistol", "Cutlass"):
+                            try:
+                                vs = player.inventory_system.VALID_WEAPONS.get(opt, {})
+                                power = vs.get('attack_power')
+                                if opt == "Pistol":
+                                    tooltip = f"Pistol of a pirate once human. Damage: {power[0]}-{power[1]}"
+                                else:
+                                    tooltip = f"Cutlass of a pirate once human. Damage: {power[0]}-{power[1]}"
+                            except Exception:
+                                tooltip = None
+                        if tooltip:
+                            tip_font = pygame.font.Font("assets/fonts/Pixeltype.ttf", 24)
+                            txt = tip_font.render(tooltip, True, (230, 230, 230))
+                            tip_x = self.screen.get_width() - txt.get_width() - 80
+                            tip_y = base_y + hovered * 36
+                            tip_rect = txt.get_rect(topleft=(tip_x, tip_y))
+                            panel = pygame.Surface((tip_rect.width + 16, tip_rect.height + 10), pygame.SRCALPHA)
+                            panel.fill((8, 8, 12, 220))
+                            pygame.draw.rect(panel, (120, 140, 170, 220), panel.get_rect(), 2)
+                            self.screen.blit(panel, (tip_rect.x - 8, tip_rect.y - 5))
+                            self.screen.blit(txt, tip_rect)
+                except Exception:
+                    pass
             else:
                 base_y = 220
                 self.slot_rects = []
