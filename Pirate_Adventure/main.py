@@ -18,7 +18,7 @@ SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Grand Line Pirate Adventure")
+pygame.display.set_caption("Pirate Adventure")
 
 clock = pygame.time.Clock()
 
@@ -77,7 +77,7 @@ while True:
             current_scene = Overworld(screen, player_name)
 
         elif result == "pause":
-            if isinstance(current_scene, Overworld):
+            if hasattr(current_scene, 'player'):
                 current_scene = PauseMenu(screen, current_scene)
 
         elif result == "back_to_menu":
