@@ -1,5 +1,7 @@
 import pygame
 
+SFX_VOLUME = 100
+
 
 class SettingsSystem:
 
@@ -35,6 +37,8 @@ class SettingsSystem:
         self.set_volume(self.volume)
         # SFX volume (stored separately from music)
         self.sfx_volume = self.volume
+        global SFX_VOLUME
+        SFX_VOLUME = self.sfx_volume
 
     # -------------------------
     # DISPLAY / WINDOW MODE
@@ -88,8 +92,12 @@ class SettingsSystem:
     # -------------------------
     def set_sfx_volume(self, value):
         self.sfx_volume = max(0, min(100, value))
+        global SFX_VOLUME
+        SFX_VOLUME = self.sfx_volume
         return self.sfx_volume
 
     def change_sfx_volume(self, delta):
         self.sfx_volume = max(0, min(100, self.sfx_volume + delta))
+        global SFX_VOLUME
+        SFX_VOLUME = self.sfx_volume
         return self.sfx_volume
