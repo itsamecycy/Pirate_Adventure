@@ -1,5 +1,7 @@
 import pygame
 from entities.player1 import Player
+from entities.quartermaster import Quartermaster
+from maps.bossArea import BossArea
 from systems.combatsys import CombatSystem
 from scenes.battle import BattleScene
 
@@ -36,6 +38,15 @@ class Overworld:
             player_x if player_x is not None else self.screen_w // 2,
             player_y if player_y is not None else self.screen_h // 2
         )
+
+        # place quartermaster a little below center
+        qm_x = self.screen_w // 2
+        qm_y = int(self.screen_h * 0.55)
+        self.quartermaster = Quartermaster(qm_x, qm_y)
+
+        # transient dialog display
+        self.dialog_text = None
+        self.dialog_timer = 0
 
         # Combat system for random encounters
         self.combat = CombatSystem(self.screen, encounter_chance=8, steps_per_check=1)
@@ -75,6 +86,20 @@ class Overworld:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 return "pause"
+            if event.key == pygame.K_e:
+                # interact with quartermaster if colliding
+                try:
+                    if hasattr(self, 'quartermaster') and self.player.rect.colliderect(self.quartermaster.rect):
+                        self.quartermaster.interact(self.player, self)
+                except Exception:
+                    pass
+        # mouse click interaction
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            try:
+                if hasattr(self, 'quartermaster') and self.quartermaster.rect.collidepoint(event.pos):
+                    self.quartermaster.interact(self.player, self)
+            except Exception:
+                pass
         return None
 
     # UPDATE
@@ -93,8 +118,35 @@ class Overworld:
                 battle = BattleScene(self.screen, self.player_name, self.player, enemy, self)
                 return ("switch_scene", battle)
 
+        # boss area entry zone at the top center of the overworld
+        entry_width = 240
+        entry_height = 40
+        entry_rect = pygame.Rect(
+            (self.screen_w - entry_width) // 2,
+            0,
+            entry_width,
+            entry_height,
+        )
+        if self.player.rect.top <= 0 and entry_rect.collidepoint(self.player.rect.centerx, self.player.rect.top):
+            self.player.rect.midbottom = (self.screen_w // 2, self.screen_h - 40)
+            boss_area = BossArea(self.screen, self.player_name, self.player, self)
+            return ("switch_scene", boss_area)
+
         self.player.rect.x = max(0, min(self.player.rect.x, self.screen_w - self.player.rect.width))
         self.player.rect.y = max(0, min(self.player.rect.y, self.screen_h - self.player.rect.height))
+        # update quartermaster
+        try:
+            if hasattr(self, 'quartermaster'):
+                self.quartermaster.update()
+        except Exception:
+            pass
+
+        # dialog timer
+        if getattr(self, 'dialog_timer', 0) > 0:
+            self.dialog_timer -= 16
+            if self.dialog_timer <= 0:
+                self.dialog_text = None
+                self.dialog_timer = 0
 
     # DRAW
     def draw(self):
@@ -119,12 +171,30 @@ class Overworld:
 
         self.screen.blit(self.player.image, self.player.rect)
 
+        # draw quartermaster
+        try:
+            if hasattr(self, 'quartermaster'):
+                self.quartermaster.draw(self.screen)
+        except Exception:
+            pass
+
         name_text = pygame.font.Font("assets/fonts/Pixeltype.ttf", 28).render(
             f"Captain: {self.player_name}",
             True,
             (220, 220, 220)
         )
         self.screen.blit(name_text, (18, 14))
+        # Demon counter UI
+        try:
+            kills = getattr(self.player, 'quest_demon_kills', 0)
+            counter_font = pygame.font.Font("assets/fonts/Pixeltype.ttf", 20)
+            counter_text = counter_font.render(f"Demons: {kills}/10", True, (240, 200, 80))
+            counter_bg = pygame.Surface((counter_text.get_width() + 12, counter_text.get_height() + 8), pygame.SRCALPHA)
+            counter_bg.fill((8, 8, 12, 180))
+            self.screen.blit(counter_bg, (18, 48))
+            self.screen.blit(counter_text, (18 + 6, 48 + 4))
+        except Exception:
+            pass
 
         hint_text = pygame.font.Font("assets/fonts/Pixeltype.ttf", 24).render(
             "Press ESC to pause",
@@ -132,3 +202,24 @@ class Overworld:
             (170, 170, 170)
         )
         self.screen.blit(hint_text, (18, self.screen_h - 40))
+
+        # draw dialog text if present (improved panel)
+        if getattr(self, 'dialog_text', None):
+            # larger dialog font for readability
+            font = pygame.font.Font("assets/fonts/Pixeltype.ttf", 30)
+            # support short wrapping if needed
+            text = getattr(self, 'dialog_text', '')
+            txt = font.render(text, True, (240, 240, 240))
+            rect = txt.get_rect(center=(self.screen_w // 2, 80))
+            panel_w = min(self.screen_w - 120, rect.width + 40)
+            panel_h = rect.height + 24
+            panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+            panel.fill((6, 6, 12, 220))
+            # border
+            pygame.draw.rect(panel, (120, 140, 170, 220), panel.get_rect(), 2)
+            panel_x = (self.screen_w - panel_w) // 2
+            panel_y = rect.y - 12
+            self.screen.blit(panel, (panel_x, panel_y))
+            # center text within panel
+            txt_rect = txt.get_rect(center=(panel_x + panel_w // 2, panel_y + panel_h // 2))
+            self.screen.blit(txt, txt_rect)
