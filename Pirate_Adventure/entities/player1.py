@@ -1,5 +1,6 @@
 import os
 import pygame
+from systems.inventorysys import InventorySystem
 
 
 class Player:
@@ -56,9 +57,21 @@ class Player:
         self.hp = 120
         self.max_mp = 40
         self.mp = 40
-        self.items = {"Potion": 2}
+        self.items = {
+            "Potion": 2,
+            "Pistol": 1,
+            "Cutlass": 1,
+        }
         self.skills = ["Fireball"]
         self.status_effects = ["Healthy"]
+        self.equipped_weapons = {"gun": None, "sword": None}
+        self.attack_power = (12, 20)
+        # quest and blessing state
+        self.enemy_demon_kills = 0
+        self.quest_demon_kills = 0
+        self.quest_active = False
+        self.blessed = False
+        self.inventory_system = InventorySystem(self)
 
         # start state
         self.current_animation = self.idle_front
@@ -159,6 +172,15 @@ class Player:
                 return self.idle_back
             else:
                 return self.idle_front
+
+    def equip_weapon(self, weapon_name):
+        return self.inventory_system.equip_weapon(weapon_name)
+
+    def unequip_weapon(self, weapon_name=None):
+        return self.inventory_system.unequip_weapon(weapon_name)
+
+    def get_equipped_weapons(self):
+        return self.equipped_weapons
 
     # ANIMATION
     def animate(self):

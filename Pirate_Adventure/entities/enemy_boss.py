@@ -8,6 +8,7 @@ class EnemyBoss:
     def __init__(self, x, y, screen=None):
 
         # Position
+
         self.x = x
         self.y = y
         self.screen = screen
@@ -16,6 +17,7 @@ class EnemyBoss:
         self.angle = 0
 
         # Animation
+
         self.frame_width = 64
         self.frame_height = 64
 
@@ -26,6 +28,7 @@ class EnemyBoss:
         self.last_animation = None
 
         # Boss Stats
+
         self.max_hp = 200
         self.hp = 200
 
@@ -37,11 +40,13 @@ class EnemyBoss:
         self.damage = 10
 
         # AI Variables
+
         self.target = None
         self.target_distance = None
         self.last_shot_time = None
 
         # Sprite Setup
+
         self.image = pygame.Surface(
             (self.frame_width, self.frame_height),
             pygame.SRCALPHA
@@ -52,6 +57,7 @@ class EnemyBoss:
         )
 
         # Idle Animation
+
         self.idle = []
 
         base = "assets/enemy_boss"
@@ -119,6 +125,7 @@ class EnemyBoss:
         self.image = self.current_animation[0]
 
     # Image Helpers
+
     def crop_alpha(self, surface):
 
         width, height = surface.get_size()
@@ -156,6 +163,7 @@ class EnemyBoss:
         ).copy()
 
     # Animation
+
     def animate(self):
 
         if self.current_animation != self.last_animation:
@@ -186,6 +194,7 @@ class EnemyBoss:
         )
 
     # AI
+
     def update_ai(self, player):
 
         if player is None:
@@ -239,6 +248,7 @@ class EnemyBoss:
             self.last_shot_time = now
 
     # Shoot
+
     def shoot(self, target):
 
         if target is None:
@@ -253,6 +263,7 @@ class EnemyBoss:
             target.hp = 0
 
     # General Update
+
     def update(self, player=None):
 
         self.animate()
