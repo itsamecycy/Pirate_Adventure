@@ -1,6 +1,6 @@
 import os
 import pygame
-from entities.boss_npc import BossNPC
+from entities.boss import BossNPC
 
 
 class BossArea:
