@@ -51,10 +51,10 @@ class Quartermaster:
         # player: Player instance
         # overworld: Overworld instance (for setting dialog)
         kills = getattr(player, 'quest_demon_kills', 0)
-        blessed = getattr(player, 'blessed', False)
+        rewards_given = getattr(player, 'quest_rewards_given', False)
 
-        if blessed:
-            overworld.dialog_text = "Quartermaster: Your equipments are already blessed."
+        if rewards_given:
+            overworld.dialog_text = "Quartermaster: You already received the rewards for completing the quest."
             overworld.dialog_timer = 3000
             return
 
@@ -63,23 +63,29 @@ class Quartermaster:
             player.quest_active = True
             # don't reset existing progress, but ensure counter exists
             player.quest_demon_kills = getattr(player, 'quest_demon_kills', 0)
-            overworld.dialog_text = "Quartermaster: If you want to defeat Black Beard, defeat 10 enemy demon and I will bless your equipments"
+            overworld.dialog_text = "Quartermaster: If you want to defeat Black Beard, defeat 10 demons and I will reward you with powerful weapons."
             overworld.dialog_timer = 5000
             return
 
         # If quest active, check progress
         if kills >= 10:
-            # apply blessing
-            player.blessed = True
-            player.max_hp = getattr(player, 'max_hp', 120) + 80
-            player.hp = getattr(player, 'hp', 120) + 80
-            # sync inventory/system attack state
+            # Add reward weapons to inventory via the InventorySystem so they're equipable
             try:
-                if hasattr(player, 'inventory_system'):
-                    player.inventory_system.sync_from_owner()
+                if hasattr(player, 'inventory_system') and player.inventory_system is not None:
+                    player.inventory_system.add_item("Golden Pistol", 1)
+                    player.inventory_system.add_item("Falchion Sword", 1)
+                else:
+                    # fallback: modify the raw items dict
+                    player.items["Golden Pistol"] = player.items.get("Golden Pistol", 0) + 1
+                    player.items["Falchion Sword"] = player.items.get("Falchion Sword", 0) + 1
             except Exception:
-                pass
-            overworld.dialog_text = "Quartermaster: I have blessed your equipments. Damage increased and Boss hits reduced."
+                # ensure items still get added in case of unexpected error
+                player.items["Golden Pistol"] = player.items.get("Golden Pistol", 0) + 1
+                player.items["Falchion Sword"] = player.items.get("Falchion Sword", 0) + 1
+
+            # mark rewards given to prevent repeats (separate from 'blessed')
+            player.quest_rewards_given = True
+            overworld.dialog_text = "Quartermaster: Excellent work! Here are your rewards: Golden Pistol and Falchion Sword!"
             overworld.dialog_timer = 4000
         else:
             overworld.dialog_text = f"Quartermaster: You have defeated {kills}/10 demons. Keep going." 
