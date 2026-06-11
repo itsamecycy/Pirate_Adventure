@@ -12,6 +12,16 @@ class InventorySystem:
             "attack_power": (20, 30),
             "description": "A quick pistol for ranged attacks.",
         },
+        "Golden Pistol": {
+            "category": "gun",
+            "attack_power": (40, 60),
+            "description": "The gun of a once-known pirate. DMG: 40-60",
+        },
+        "Falchion Sword": {
+            "category": "sword",
+            "attack_power": (50, 75),
+            "description": "The sword of a fine pirate. DMG: 50-75",
+        },
     }
 
     EQUIP_CATEGORIES = {"gun", "sword"}
@@ -43,6 +53,34 @@ class InventorySystem:
     def _sync_owner_attack_state(self):
         if self.owner is None:
             return
+        # Ensure we remember the owner's base max HP so bonuses don't stack
+        if not hasattr(self.owner, '_base_max_hp'):
+            try:
+                self.owner._base_max_hp = int(getattr(self.owner, 'max_hp', 120))
+            except Exception:
+                self.owner._base_max_hp = 120
+
+        # Determine if reward weapons are equipped
+        equipped = [v for v in self.equipped_weapons.values() if v]
+        has_reward_weapon = any(w in ("Golden Pistol", "Falchion Sword") for w in equipped)
+
+        # Apply HP bonus when reward weapons are equipped
+        bonus_hp = 80 if has_reward_weapon else 0
+        base_max = getattr(self.owner, '_base_max_hp', 120)
+        new_max_hp = base_max + bonus_hp
+
+        # Adjust current HP sensibly: if the player was at or below base, boost by bonus
+        current_hp = int(getattr(self.owner, 'hp', new_max_hp))
+        if bonus_hp and current_hp <= base_max:
+            current_hp = min(new_max_hp, current_hp + bonus_hp)
+        else:
+            current_hp = min(new_max_hp, current_hp)
+
+        self.owner.max_hp = new_max_hp
+        self.owner.hp = current_hp
+
+        # Boss damage reduction when reward weapons are equipped
+        self.owner.boss_damage_reduction = 0.2 if has_reward_weapon else 0.0
 
         # Base attack comes from owner; if a gun is equipped override attack power.
         gun = self.equipped_weapons.get("gun")
@@ -60,6 +98,7 @@ class InventorySystem:
             if getattr(self.owner, 'blessed', False):
                 base = (int(base[0] * 1.25), int(base[1] * 1.25))
             self.owner.attack_power = base
+
         self.owner.equipped_weapons = self.equipped_weapons
 
     def available_weapons(self):
