@@ -71,6 +71,7 @@ class Player:
         self.quest_demon_kills = 0
         self.quest_active = False
         self.blessed = False
+        self.quest_rewards_given = False
         self.inventory_system = InventorySystem(self)
 
         # start state
