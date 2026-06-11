@@ -97,6 +97,11 @@ class PauseMenu:
             "player_skills": getattr(self.overworld.player, 'skills', []),
             "player_status": getattr(self.overworld.player, 'status_effects', ['Healthy']),
             "player_equipped_weapons": getattr(self.overworld.player, 'equipped_weapons', {"gun": None, "sword": None}),
+            # Quest/save state
+            "player_quest_demon_kills": getattr(self.overworld.player, 'quest_demon_kills', 0),
+            "player_quest_active": getattr(self.overworld.player, 'quest_active', False),
+            "player_quest_rewards_given": getattr(self.overworld.player, 'quest_rewards_given', False),
+            "player_blessed": getattr(self.overworld.player, 'blessed', False),
             "settings": {
                 "resolution": self.settings_system.current_resolution(),
                 "fullscreen": self.settings_system.fullscreen,
@@ -205,6 +210,12 @@ class PauseMenu:
         new_overworld.player.skills = saved.get("player_skills", getattr(new_overworld.player, 'skills', []))
         new_overworld.player.status_effects = saved.get("player_status", getattr(new_overworld.player, 'status_effects', ['Healthy']))
         new_overworld.player.equipped_weapons = saved.get("player_equipped_weapons", getattr(new_overworld.player, 'equipped_weapons', {"gun": None, "sword": None}))
+        # restore quest and misc flags
+        new_overworld.player.quest_demon_kills = saved.get("player_quest_demon_kills", getattr(new_overworld.player, 'quest_demon_kills', 0))
+        new_overworld.player.quest_active = saved.get("player_quest_active", getattr(new_overworld.player, 'quest_active', False))
+        new_overworld.player.quest_rewards_given = saved.get("player_quest_rewards_given", getattr(new_overworld.player, 'quest_rewards_given', False))
+        new_overworld.player.blessed = saved.get("player_blessed", getattr(new_overworld.player, 'blessed', False))
+
         new_overworld.player.inventory_system.sync_from_owner()
         player_name = saved.get("player_name", self.overworld.player_name)
         return ("start_loading", player_name, lambda: new_overworld)
@@ -255,6 +266,35 @@ class PauseMenu:
         for category, weapon in equipped_weapons.items():
             lines.append(f"  - {category.title()}: {weapon if weapon else 'None'}")
         return lines
+
+    def use_potion(self):
+        player = getattr(self.overworld, 'player', None)
+        if player is None:
+            self.set_status("No player available")
+            return
+
+        if getattr(player, 'items', {}).get('Potion', 0) <= 0:
+            self.set_status("No potions available")
+            return
+
+        current_hp = getattr(player, 'hp', 0)
+        max_hp = getattr(player, 'max_hp', 120)
+        if current_hp >= max_hp:
+            self.set_status("HP is already full")
+            return
+
+        heal_amount = 40
+        new_hp = min(max_hp, current_hp + heal_amount)
+        if hasattr(player, 'items'):
+            player.items['Potion'] = player.items.get('Potion', 1) - 1
+            if player.items['Potion'] <= 0:
+                player.items.pop('Potion', None)
+
+        player.hp = new_hp
+        if hasattr(player, 'inventory_system'):
+            player.inventory_system.sync_to_owner()
+
+        self.set_status(f"Healed {new_hp - current_hp} HP")
 
     # INPUT
     def handle_events(self, event):
@@ -367,6 +407,12 @@ class PauseMenu:
             mouse_result = self.pause_system.handle_mouse(event)
             if mouse_result:
                 return self.handle_selection(mouse_result)
+        elif self.mode == "resources" and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for rect, item_name in getattr(self, 'resource_item_rects', []):
+                if rect.collidepoint(event.pos):
+                    if item_name == "Potion":
+                        self.use_potion()
+                        return None
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for index, rect in enumerate(self.slot_rects):
                 if rect.collidepoint(pygame.mouse.get_pos()):
@@ -512,11 +558,16 @@ class PauseMenu:
                     self.screen.blit(option_text, option_text.get_rect(center=(center_x, 220 + i * 40)))
             elif self.mode == "resources":
                 status_lines = self.get_player_status_lines()
+                self.resource_item_rects = []
                 for i, line in enumerate(status_lines):
                     option_text = self.small_font.render(line, True, (200, 200, 220) if line and not line.startswith('  -') else (180, 180, 180))
-                    self.screen.blit(option_text, option_text.get_rect(topleft=(80, 170 + i * 24)))
+                    rect = option_text.get_rect(topleft=(80, 170 + i * 24))
+                    self.screen.blit(option_text, rect)
+                    if line.startswith('  - '):
+                        item_name = line[4:].split(':', 1)[0]
+                        self.resource_item_rects.append((rect, item_name))
                 instructions = self.small_font.render(
-                    "ESC return",
+                    "ESC return | Click Potion to heal",
                     True,
                     (160, 160, 160)
                 )
@@ -575,16 +626,13 @@ class PauseMenu:
                         opt = options[hovered]
                         player = getattr(self.overworld, 'player', None)
                         tooltip = None
-                        if opt in ("Pistol", "Cutlass"):
-                            try:
-                                vs = player.inventory_system.VALID_WEAPONS.get(opt, {})
-                                power = vs.get('attack_power')
-                                if opt == "Pistol":
-                                    tooltip = f"Pistol of a pirate once human. Damage: {power[0]}-{power[1]}"
-                                else:
-                                    tooltip = f"Cutlass of a pirate once human. Damage: {power[0]}-{power[1]}"
-                            except Exception:
-                                tooltip = None
+                        try:
+                            if player and hasattr(player, 'inventory_system'):
+                                vs = player.inventory_system.VALID_WEAPONS.get(opt)
+                                if vs:
+                                    tooltip = vs.get('description') or (f"Damage: {vs.get('attack_power', (0,0))[0]}-{vs.get('attack_power', (0,0))[1]}")
+                        except Exception:
+                            tooltip = None
                         if tooltip:
                             tip_font = pygame.font.Font("assets/fonts/Pixeltype.ttf", 24)
                             txt = tip_font.render(tooltip, True, (230, 230, 230))
