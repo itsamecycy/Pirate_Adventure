@@ -76,7 +76,11 @@ class BattleScene:
         self.long_wood = self.load_trimmed_image(os.path.join("assets", "ui", "long-wood.png"))
         self.short_wood = self.load_trimmed_image(os.path.join("assets", "ui", "short-wood.png"))
         self.scroll = self.load_trimmed_image(os.path.join("assets", "ui", "scroll.png"))
-        self.battleground = pygame.image.load(os.path.join("assets", "ui", "battleground.png")).convert()
+        battleground_path = os.path.join("assets", "ui", "battleground.png")
+        boss_arena_path = os.path.join("assets", "ui", "boss-arena.png")
+        if hasattr(enemy_entity, "__class__") and enemy_entity.__class__.__name__ == "EnemyBoss" and os.path.exists(boss_arena_path):
+            battleground_path = boss_arena_path
+        self.battleground = pygame.image.load(battleground_path).convert()
         self.battleground = pygame.transform.smoothscale(self.battleground, (self.screen_w, self.screen_h))
 
         # Change these values to resize or move the battle button frame.
@@ -346,7 +350,7 @@ class BattleScene:
                         # global counter
                         self.player_entity.enemy_demon_kills += 1
                         # quest counter increments only if quest active and not blessed
-                        if getattr(self.player_entity, 'quest_active', False) and not getattr(self.player_entity, 'blessed', False):
+                        if getattr(self.player_entity, 'quest_active', False) and not getattr(self.player_entity, 'quest_rewards_given', False):
                             self.player_entity.quest_demon_kills = getattr(self.player_entity, 'quest_demon_kills', 0) + 1
                     except Exception:
                         pass
@@ -364,14 +368,14 @@ class BattleScene:
 
         if self.player["hp"] <= 0:
             self.set_message("You were defeated...")
-            # persist death HP
+            # force one HP on return to overworld
             try:
                 if hasattr(self.player_entity, 'hp'):
-                    self.player_entity.hp = int(self.player.get('hp', getattr(self.player_entity, 'hp', 0)))
+                    self.player_entity.hp = 1
+                self.player["hp"] = 1
             except Exception:
                 pass
-            return "back_to_menu"
-            return "back_to_menu"
+            return ("switch_scene", self.return_scene)
 
         if self.player_anim_state == "attack1":
             self.player_frame_index += self.player_anim_speed
