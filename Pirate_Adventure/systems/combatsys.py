@@ -1,7 +1,8 @@
+import math
 import random
 
 from entities.enemy_demon import EnemyDemon
-from entities.enemy_boss import EnemyBoss
+from entities.boss import EnemyBoss
 
 
 class CombatSystem:
@@ -29,6 +30,9 @@ class CombatSystem:
         )
 
         self.step_counter = 0
+        self.last_player_pos = None
+        self.distance_traveled = 0.0
+        self.next_encounter_distance = random.randint(200, 300)
 
         # IMPORTANT:
         # Boss is NOT included here.
@@ -64,32 +68,37 @@ class CombatSystem:
         if not self.enabled:
             return None
 
-        self.step_counter += 1
-
-        if self.step_counter < self.steps_per_check:
+        if self.last_player_pos is None:
+            self.last_player_pos = (player_x, player_y)
             return None
 
-        self.step_counter = 0
+        prev_x, prev_y = self.last_player_pos
+        dx = player_x - prev_x
+        dy = player_y - prev_y
+        distance = math.hypot(dx, dy)
 
-        roll = random.random() * 100
+        self.distance_traveled += distance
+        self.last_player_pos = (player_x, player_y)
 
-        if roll < self.encounter_chance:
+        if self.distance_traveled < self.next_encounter_distance:
+            return None
 
-            cls = random.choice(
-                self._choices
-            )
+        self.distance_traveled = 0.0
+        self.next_encounter_distance = random.randint(200, 300)
 
-            ex = player_x + 32
-            ey = player_y
+        cls = random.choice(
+            self._choices
+        )
 
-            try:
-                enemy = cls(ex, ey)
-            except Exception:
-                enemy = EnemyDemon(ex, ey)
+        ex = player_x + 32
+        ey = player_y
 
-            return enemy
+        try:
+            enemy = cls(ex, ey)
+        except Exception:
+            enemy = EnemyDemon(ex, ey)
 
-        return None
+        return enemy
 
     def set_encounter_chance(self, percent):
 
@@ -203,12 +212,14 @@ class CombatSystem:
             )
         )
 
-        # reduce boss damage by ~20% if defender is blessed
-        if attacker_is_boss and self._get(defender, 'blessed', False):
-            try:
-                dmg = int(dmg * 0.8)
-            except Exception:
-                pass
+        # reduce boss damage by defender's boss_damage_reduction (e.g., 0.2 for 20%)
+        if attacker_is_boss:
+            reduction = float(self._get(defender, 'boss_damage_reduction', 0.0) or 0.0)
+            if reduction:
+                try:
+                    dmg = int(dmg * (1.0 - reduction))
+                except Exception:
+                    pass
 
         if defending:
             dmg //= 2
