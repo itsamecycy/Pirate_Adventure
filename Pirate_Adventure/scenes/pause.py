@@ -470,7 +470,7 @@ class PauseMenu:
             True,
             (143, 205, 217)
         )
-        self.screen.blit(title, title.get_rect(center=(center_x, 100)))
+        self.screen.blit(title, title.get_rect(center=(center_x, 50)))
 
         if self.mode is None:
             self.pause_system.draw()
@@ -479,7 +479,7 @@ class PauseMenu:
                 True,
                 (180, 180, 180)
             )
-            self.screen.blit(prompt, prompt.get_rect(center=(center_x, 500)))
+            self.screen.blit(prompt, prompt.get_rect(center=(center_x, 650)))
         else:
             mode_title = {
                 "save": "Save to Slot",
@@ -514,7 +514,7 @@ class PauseMenu:
                 status_lines = self.get_player_status_lines()
                 for i, line in enumerate(status_lines):
                     option_text = self.small_font.render(line, True, (200, 200, 220) if line and not line.startswith('  -') else (180, 180, 180))
-                    self.screen.blit(option_text, option_text.get_rect(topleft=(80, 220 + i * 34)))
+                    self.screen.blit(option_text, option_text.get_rect(topleft=(80, 170 + i * 24)))
                 instructions = self.small_font.render(
                     "ESC return",
                     True,
@@ -523,7 +523,7 @@ class PauseMenu:
                 self.screen.blit(instructions, instructions.get_rect(center=(center_x, self.screen.get_height() - 80)))
             elif self.mode == "equipment":
                 title = self.small_font.render("Equipment", True, (220, 220, 255))
-                self.screen.blit(title, title.get_rect(center=(center_x, 140)))
+                self.screen.blit(title, title.get_rect(center=(center_x, 110)))
 
                 options = self.get_equipment_options()
                 base_y = 200
