@@ -1,3 +1,4 @@
+import copy
 import os
 import re
 import pygame
@@ -8,10 +9,18 @@ from systems.settingsys import SFX_VOLUME
 
 class BattleScene:
 
-    def __init__(self, screen, player_name, player_entity, enemy_entity, return_scene):
+    def __init__(self, screen, player_name, player_entity, enemy_entity, return_scene, boss_npc=None):
         self.screen = screen
         self.screen_w, self.screen_h = self.screen.get_size()
         self.player_name = player_name
+
+        # Boss area NPC reference for boss battles
+        self.boss_npc = None
+        if boss_npc is not None:
+            try:
+                self.boss_npc = copy.copy(boss_npc)
+            except Exception:
+                self.boss_npc = boss_npc
 
         # Player combat stats
         self.player_entity = player_entity
@@ -104,6 +113,7 @@ class BattleScene:
         self.player_base_x = 170
         self.player_base_y = self.screen_h - 20
         self.enemy_scale = 2
+        self.boss_scale = 2.2  # change this to adjust boss size in boss battles
 
         # player animation frames from newplayer1 assets
         self.frame_width = 64
@@ -451,6 +461,13 @@ class BattleScene:
         except Exception:
             pass
 
+        # update boss area NPC animation if present
+        try:
+            if hasattr(self, 'boss_npc') and self.boss_npc is not None and hasattr(self.boss_npc, 'update'):
+                self.boss_npc.update()
+        except Exception:
+            pass
+
         if self.turn == "enemy_hurt":
             finished = False
             try:
@@ -585,6 +602,24 @@ class BattleScene:
             )
             enemy_rect = enemy_img.get_rect(center=(center_x + 260, self.screen.get_height() // 2 - 40))
             self.screen.blit(enemy_img, enemy_rect)
+
+            # boss NPC overlay for boss battle
+            if getattr(self, 'boss_npc', None) is not None:
+                try:
+                    if hasattr(self.boss_npc, 'images') and self.boss_npc.images:
+                        idx = int(self.boss_npc.frame) % len(self.boss_npc.images)
+                        boss_img = self.boss_npc.images[idx]
+                        scaled_boss = pygame.transform.scale(
+                            boss_img,
+                            (
+                                int(boss_img.get_width() * self.boss_scale),
+                                int(boss_img.get_height() * self.boss_scale),
+                            ),
+                        )
+                        boss_rect = scaled_boss.get_rect(center=(enemy_rect.centerx, enemy_rect.centery - 50))
+                        self.screen.blit(scaled_boss, boss_rect)
+                except Exception:
+                    pass
 
         # player on left (use attack animation when playing)
         player_img = None
