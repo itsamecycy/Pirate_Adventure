@@ -172,7 +172,7 @@ class BossNPC:
             try:
                 img = pygame.image.load(os.path.join(folder, fname)).convert_alpha()
                 try:
-                    img = pygame.transform.smoothscale(img, (140, 140))
+                    img = pygame.transform.scale(img, (140, 140))
                 except Exception:
                     pass
                 self.images.append(img)
@@ -219,7 +219,7 @@ class BossNPC:
             target_scene = getattr(boss_area, 'return_scene', boss_area)
             if hasattr(target_scene, 'return_scene'):
                 target_scene = getattr(target_scene, 'return_scene', target_scene)
-            battle = BattleScene(boss_area.screen, boss_area.player_name, player, enemy, target_scene)
+            battle = BattleScene(boss_area.screen, boss_area.player_name, player, enemy, target_scene, boss_npc=self)
             return ("switch_scene", battle)
         except Exception:
             boss_area.dialog_text = "Boss: I will not fight now."
