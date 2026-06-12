@@ -11,6 +11,7 @@ from scenes.loadgame import LoadGame
 from scenes.loading import LoadingScreen
 from maps.overworld import Overworld
 from scenes.pause import PauseMenu
+from scenes.gameover import GameOver
 
 pygame.init()
 
@@ -54,6 +55,9 @@ while True:
                 current_scene = result[1]
                 screen = current_scene.screen
                 continue
+            if result[0] == "game_over":
+                current_scene = GameOver(screen, next_scene=result[1] if len(result) > 1 else None)
+                continue
 
         if result == "quit":
             pygame.quit()
@@ -76,6 +80,9 @@ while True:
         elif result == "loading_done":
             current_scene = Overworld(screen, player_name)
 
+        elif result == "game_over":
+            current_scene = GameOver(screen)
+
         elif result == "pause":
             if hasattr(current_scene, 'player'):
                 current_scene = PauseMenu(screen, current_scene)
@@ -97,6 +104,9 @@ while True:
         elif update_result[0] == "switch_scene":
             current_scene = update_result[1]
             screen = current_scene.screen
+        elif update_result[0] == "game_over":
+            current_scene = GameOver(screen, next_scene=update_result[1] if len(update_result) > 1 else None)
+            screen = current_scene.screen
     elif update_result == "quit":
         pygame.quit()
         exit()
@@ -114,7 +124,8 @@ while True:
         current_scene = Overworld(screen, player_name)
     elif update_result == "back_to_menu":
         current_scene = MainMenu(screen)
-
+    elif update_result == "game_over":
+        current_scene = GameOver(screen)
     current_scene.draw()
 
     pygame.display.update()
