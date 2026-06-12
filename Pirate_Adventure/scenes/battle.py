@@ -272,7 +272,15 @@ class BattleScene:
                     self.player_entity.hp = int(self.player.get('hp', getattr(self.player_entity, 'hp', 0)))
             except Exception:
                 pass
-            self.turn = "enemy"
+            # Trigger enemy attack animation
+            try:
+                if hasattr(self.enemy_entity, 'set_state'):
+                    self.enemy_entity.set_state("attack")
+            except Exception:
+                pass
+            self.set_message("Enemy attacks!")
+            self.message_timer = pygame.time.get_ticks()
+            self.turn = "enemy_attack"
             return None
 
         if choice == "Run":
@@ -395,11 +403,16 @@ class BattleScene:
                         pass
                     dmg = self.combat.attack(self.player, self.enemy_entity)
                     self.set_message(f"You hit for {dmg} damage.")
+                    try:
+                        if hasattr(self.enemy_entity, 'set_state'):
+                            self.enemy_entity.set_state("hurt")
+                    except Exception:
+                        pass
                     self.player_anim_state = "idle"
                     self.player_frame_index = 0.0
                     self.player_idle_index = 0.0
                     self.player_action = None
-                    self.turn = "enemy"
+                    self.turn = "enemy_hurt"
         elif self.player_anim_state == "attack2":
             self.player_frame_index += self.player_anim_speed
             if self.player_frame_index >= len(self.player_attack2_frames):
@@ -412,11 +425,16 @@ class BattleScene:
                     pass
                 dmg = self.combat.attack(self.player, self.enemy_entity, power_range=self.double_slash_power)
                 self.set_message(f"Double Slash hits for {dmg} damage.")
+                try:
+                    if hasattr(self.enemy_entity, 'set_state'):
+                        self.enemy_entity.set_state("hurt")
+                except Exception:
+                    pass
                 self.player_anim_state = "idle"
                 self.player_frame_index = 0.0
                 self.player_idle_index = 0.0
                 self.player_action = None
-                self.turn = "enemy"
+                self.turn = "enemy_hurt"
         else:
             if self.player_idle_frames:
                 self.player_idle_index += self.player_idle_speed
@@ -433,7 +451,50 @@ class BattleScene:
         except Exception:
             pass
 
-        # enemy turn handling
+        if self.turn == "enemy_hurt":
+            finished = False
+            try:
+                finished = getattr(self.enemy_entity, 'is_animation_finished', lambda: True)()
+            except Exception:
+                finished = True
+
+            if finished:
+                try:
+                    if hasattr(self.enemy_entity, 'set_state'):
+                        self.enemy_entity.set_state("attack")
+                except Exception:
+                    pass
+                self.set_message("Enemy attacks!")
+                self.message_timer = pygame.time.get_ticks()
+                self.turn = "enemy_attack"
+            return None
+
+        if self.turn == "enemy_attack":
+            attack_finished = False
+            try:
+                attack_finished = getattr(self.enemy_entity, 'is_animation_finished', lambda: True)()
+            except Exception:
+                attack_finished = True
+
+            if not attack_finished:
+                return None
+
+            dmg = self.combat.attack(self.enemy_entity, self.player)
+            self.set_message(f"Enemy hits for {dmg} damage.")
+            self.message_timer = pygame.time.get_ticks()
+            try:
+                if hasattr(self.enemy_entity, 'set_state'):
+                    self.enemy_entity.set_state("idle")
+            except Exception:
+                pass
+            try:
+                if hasattr(self.player_entity, 'hp'):
+                    self.player_entity.hp = int(self.player.get('hp', getattr(self.player_entity, 'hp', 0)))
+            except Exception:
+                pass
+            self.turn = "player"
+            return None
+
         if self.turn == "enemy":
             if pygame.time.get_ticks() - self.message_timer < 600:
                 return None
