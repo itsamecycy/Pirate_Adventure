@@ -394,6 +394,7 @@ class BattleScene:
             except Exception:
                 pass
             return ("switch_scene", self.return_scene)
+            return ("game_over",)
 
         if self.player_anim_state == "attack1":
             self.player_frame_index += self.player_anim_speed
