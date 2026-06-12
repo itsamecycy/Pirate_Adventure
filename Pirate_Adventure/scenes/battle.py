@@ -393,7 +393,6 @@ class BattleScene:
                 self.player["hp"] = 1
             except Exception:
                 pass
-            return ("switch_scene", self.return_scene)
             return ("game_over",)
 
         if self.player_anim_state == "attack1":
