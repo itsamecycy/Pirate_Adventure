@@ -225,34 +225,3 @@ class BossNPC:
             boss_area.dialog_text = "Boss: I will not fight now."
             boss_area.dialog_timer = 3000
             return None
-
-
-class BossAttack(pygame.sprite.Sprite):
-    def __init__(self, pos_x, pos_y):
-        super().__init__()
-        self.sprite = []
-        base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'boss_npc')
-        for i in range(1, 11):
-            image_path = os.path.join(base_path, f'attack {i}.png')
-            self.sprite.append(pygame.image.load(image_path).convert_alpha())
-
-        self.current_sprite = 0
-        self.is_animating = False
-        self.image = self.sprite[self.current_sprite]
-
-        self.rect = self.image.get_rect()
-        self.rect.topleft = [pos_x, pos_y]
-
-    def animate(self):
-        self.is_animating = True
-
-    def update(self, speed):
-        if not self.is_animating:
-            return
-
-        self.current_sprite += speed
-        if self.current_sprite >= len(self.sprite):
-            self.current_sprite = 0
-            self.is_animating = False
-
-        self.image = self.sprite[int(self.current_sprite)]
