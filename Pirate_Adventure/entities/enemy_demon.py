@@ -30,13 +30,29 @@ class EnemyDemon:
         self.image = pygame.Surface((self.frame_width, self.frame_height), pygame.SRCALPHA)
         self.rect = self.image.get_rect(center=(x, y))
 
-        # Load sheets (use outline versions)
-        base = "assets/enemy_demon/with_outline/"
+        # Load sheets using outline assets when available, otherwise fallback to without_outline.
+        base_dir = os.path.join("assets", "enemy_demon")
+        self.base = os.path.join(base_dir, "with_outline")
+        self.alt_base = os.path.join(base_dir, "without_outline")
+        if not os.path.isdir(self.base):
+            self.base = self.alt_base
+
+        def load_sheet(filename):
+            for folder in (self.base, self.alt_base):
+                path = os.path.join(folder, filename)
+                if not os.path.exists(path):
+                    continue
+                try:
+                    return pygame.image.load(path).convert_alpha()
+                except Exception:
+                    continue
+            return None
+
         # prefer individual idle frames if present (demon_idle-1..n)
         self.idle_sheet = None
         idle_seq = []
         for i in range(1, 9):
-            path = os.path.join(base, f"demon_idle-{i}.png")
+            path = os.path.join(self.base, f"demon_idle-{i}.png")
             if os.path.exists(path):
                 try:
                     idle_seq.append(pygame.image.load(path).convert_alpha())
@@ -46,81 +62,108 @@ class EnemyDemon:
                 break
 
         if not idle_seq:
-            try:
-                self.idle_sheet = pygame.image.load(base + "IDLE.png").convert_alpha()
-            except Exception:
-                self.idle_sheet = None
+            self.idle_sheet = load_sheet("IDLE.png")
         else:
             # if we loaded separate images, store them in a list and will use directly
             self.idle_seq = idle_seq
 
-        try:
-            self.attack_sheet = pygame.image.load(base + "ATTACK.png").convert_alpha()
-        except Exception:
-            self.attack_sheet = None
+        self.attack_sheet = load_sheet("ATTACK.png")
+        self.flying_sheet = load_sheet("FLYING.png")
+        self.hurt_sheet = load_sheet("HURT.png")
+        self.death_sheet = load_sheet("DEATH.png")
 
-        try:
-            self.flying_sheet = pygame.image.load(base + "FLYING.png").convert_alpha()
-        except Exception:
-            self.flying_sheet = None
+        # Extract raw frames from each animation group and normalize them to a stable centered size.
+        raw_idle = self.extract_raw_frames(self.idle_sheet, getattr(self, 'idle_seq', None))
+        raw_attack = self.extract_raw_frames(self.attack_sheet)
+        raw_flying = self.extract_raw_frames(self.flying_sheet)
+        raw_hurt = self.extract_raw_frames(self.hurt_sheet)
+        raw_death = self.extract_raw_frames(self.death_sheet)
 
-        try:
-            self.hurt_sheet = pygame.image.load(base + "HURT.png").convert_alpha()
-        except Exception:
-            self.hurt_sheet = None
+        all_frames = [*raw_idle, *raw_attack, *raw_flying, *raw_hurt, *raw_death]
+        target_width = max((frame.get_width() for frame in all_frames), default=self.frame_width)
+        target_height = max((frame.get_height() for frame in all_frames), default=self.frame_height)
+        self.frame_width = target_width
+        self.frame_height = target_height
 
-        try:
-            self.death_sheet = pygame.image.load(base + "DEATH.png").convert_alpha()
-        except Exception:
-            self.death_sheet = None
-
-        # Extract frames
-        if hasattr(self, 'idle_seq') and self.idle_seq:
-            # center/crop each image to frame size
-            frames = []
-            for surf in self.idle_seq:
-                try:
-                    cropped = self.crop_alpha(surf)
-                except Exception:
-                    cropped = surf
-                target = pygame.Surface((self.frame_width, self.frame_height), pygame.SRCALPHA)
-                x = (self.frame_width - cropped.get_width()) // 2
-                y = (self.frame_height - cropped.get_height()) // 2
-                target.blit(cropped, (x, y))
-                frames.append(target)
-            self.idle = frames
-        else:
-            self.idle = self.load_frames(self.idle_sheet)
-        self.attack = self.load_frames(self.attack_sheet)
-        self.flying = self.load_frames(self.flying_sheet)
-        self.hurt = self.load_frames(self.hurt_sheet)
-        self.death = self.load_frames(self.death_sheet)
+        self.idle = [self.center_frame(frame, target_width, target_height) for frame in raw_idle]
+        self.attack = [self.center_frame(frame, target_width, target_height) for frame in raw_attack]
+        self.flying = [self.center_frame(frame, target_width, target_height) for frame in raw_flying]
+        self.hurt = [self.center_frame(frame, target_width, target_height) for frame in raw_hurt]
+        self.death = [self.center_frame(frame, target_width, target_height) for frame in raw_death]
 
         # Start state
         self.state = "idle"
         self.current_animation = self.idle if self.idle else [self.image]
         self.image = self.current_animation[0]
+        self.rect = self.image.get_rect(center=self.rect.center)
+
+    def extract_raw_frames(self, sheet, frame_list=None):
+        frames = []
+        if frame_list:
+            for surf in frame_list:
+                try:
+                    frames.append(self.crop_alpha(surf))
+                except Exception:
+                    frames.append(pygame.Surface((self.frame_width, self.frame_height), pygame.SRCALPHA))
+            return frames
+
+        if sheet:
+            return self.frames_from_sheet(sheet)
+
+        return []
+
+    def frames_from_sheet(self, sheet):
+        rects = self.get_frame_rects(sheet)
+        frames = []
+        for rect in rects:
+            try:
+                frame = sheet.subsurface(rect).copy()
+                frames.append(self.crop_alpha(frame))
+            except Exception:
+                continue
+        return frames
+
+    def get_frame_rects(self, sheet):
+        w, h = sheet.get_size()
+        is_transparent = [
+            all(sheet.get_at((x, y)).a == 0 for y in range(h))
+            for x in range(w)
+        ]
+        rects = []
+        start = None
+        for x, empty in enumerate(is_transparent):
+            if not empty and start is None:
+                start = x
+            if empty and start is not None:
+                rects.append(pygame.Rect(start, 0, x - start, h))
+                start = None
+        if start is not None:
+            rects.append(pygame.Rect(start, 0, w - start, h))
+        return rects
+
+    def center_frame(self, frame, width, height):
+        target = pygame.Surface((width, height), pygame.SRCALPHA)
+        x = (width - frame.get_width()) // 2
+        y = (height - frame.get_height()) // 2
+        target.blit(frame, (x, y))
+        return target
 
     def load_frames(self, sheet):
-        if not sheet:
-            return []
+        return self.frames_from_sheet(sheet)
 
-        frames = []
-        sheet_w = sheet.get_width()
-        cols = max(1, sheet_w // self.frame_width)
-
-        for i in range(cols):
-            frame = sheet.subsurface(
-                pygame.Rect(
-                    i * self.frame_width,
-                    0,
-                    self.frame_width,
-                    self.frame_height,
-                )
-            ).copy()
-            frames.append(frame)
-
-        return frames
+    def crop_alpha(self, surface):
+        width, height = surface.get_size()
+        minx, miny, maxx, maxy = width, height, 0, 0
+        for x in range(width):
+            for y in range(height):
+                if surface.get_at((x, y)).a != 0:
+                    minx = min(minx, x)
+                    miny = min(miny, y)
+                    maxx = max(maxx, x)
+                    maxy = max(maxy, y)
+        if maxx < minx or maxy < miny:
+            return surface.copy()
+        return surface.subsurface(pygame.Rect(minx, miny, maxx - minx + 1, maxy - miny + 1)).copy()
 
     def set_state(self, state):
         if state == self.state:
@@ -139,6 +182,11 @@ class EnemyDemon:
             self.frame_index = 0
             self.last_animation = None
 
+    def is_animation_finished(self):
+        if not self.current_animation:
+            return True
+        return int(self.frame_index) >= len(self.current_animation) - 1
+
     def animate(self):
         animation = self.current_animation
 
@@ -152,11 +200,10 @@ class EnemyDemon:
         if len(animation) > 1:
             self.frame_index += speed
             if self.frame_index >= len(animation):
-                # loop idle/flying/attack; on death stay on last frame
-                if self.state == "death":
-                    self.frame_index = len(animation) - 1
-                else:
+                if self.state in ("idle", "flying"):
                     self.frame_index = 0
+                else:
+                    self.frame_index = len(animation) - 1
 
         else:
             self.frame_index = min(self.frame_index, len(animation) - 1)
