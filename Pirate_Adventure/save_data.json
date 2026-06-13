@@ -1,33 +1,45 @@
 {
     "slots": [
         {
-            "player_name": "Zoltan",
-            "player_x": 612,
+            "player_name": "Jack",
+            "player_x": 664,
             "player_y": 152,
+            "player_hp": 120,
+            "player_max_hp": 120,
+            "player_mp": 40,
+            "player_max_mp": 40,
+            "player_items": {
+                "Potion": 2,
+                "Pistol": 1,
+                "Cutlass": 1,
+                "Golden Pistol": 1,
+                "Falchion Sword": 1
+            },
+            "player_skills": [
+                "Fireball"
+            ],
+            "player_status": [
+                "Healthy"
+            ],
+            "player_equipped_weapons": {
+                "gun": "Pistol",
+                "sword": "Cutlass"
+            },
+            "player_quest_demon_kills": 10,
+            "player_quest_active": true,
+            "player_quest_rewards_given": true,
+            "player_blessed": false,
             "settings": {
                 "resolution": [
                     1280,
                     720
                 ],
                 "fullscreen": false,
-                "volume": 100
+                "volume": 96
             },
-            "saved_at": "2026-05-19T14:41:21.315657Z"
+            "saved_at": "2026-06-13T15:59:50.618492Z"
         },
-        {
-            "player_name": "Kaito",
-            "player_x": 640,
-            "player_y": 360,
-            "settings": {
-                "resolution": [
-                    1280,
-                    720
-                ],
-                "fullscreen": false,
-                "volume": 100
-            },
-            "saved_at": "2026-05-19T14:41:02.419893Z"
-        },
+        null,
         null,
         null,
         null

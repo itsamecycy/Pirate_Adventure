@@ -236,6 +236,15 @@ class CombatSystem:
             )
         )
 
+        # Honor invincibility flag (either on dict or object)
+        if bool(self._get(defender, 'invincible_hp', False)):
+            # no damage applied
+            new_hp = hp
+            # ensure defending flag is cleared if present
+            if defending:
+                self._set(defender, 'defending', False)
+            return dmg
+
         new_hp = max(
             0,
             hp - dmg

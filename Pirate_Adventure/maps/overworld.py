@@ -47,10 +47,20 @@ class Overworld:
         # transient dialog display
         self.dialog_text = None
         self.dialog_timer = 0
+        self.dialog_duration = 0
+        self.dialog_fade_duration = 0
+        self.dialog_delay = 0
+        self.dialog_pending_text = None
+
+        # one-off event dialog queue
+        self.event_dialog_queue = []
+        self.event_dialog = None
 
         # Combat system for random encounters
         self.combat = CombatSystem(self.screen, encounter_chance=8, steps_per_check=1)
         self.pending_encounter = None
+        # encounter animation state
+        self.encounter_anim = None
 
         self.map_data = self.build_map()
 
@@ -80,6 +90,29 @@ class Overworld:
                     game_map[y][x] = 3
 
         return game_map
+
+    def set_event_dialog(self, text, duration=3000, fade_duration=500, delay=0):
+        self.event_dialog_queue.append({
+            "text": text,
+            "duration": max(0, int(duration)),
+            "fade_duration": max(0, int(fade_duration)),
+            "delay": max(0, int(delay)),
+        })
+        if self.event_dialog is None:
+            self._start_next_event_dialog()
+
+    def _start_next_event_dialog(self):
+        if not self.event_dialog_queue:
+            self.event_dialog = None
+            return
+        next_item = self.event_dialog_queue.pop(0)
+        self.event_dialog = {
+            "text": next_item["text"],
+            "duration": next_item["duration"],
+            "fade_duration": next_item["fade_duration"],
+            "delay": next_item["delay"],
+            "timer": next_item["duration"] if next_item["delay"] == 0 else 0,
+        }
 
     # INPUT
     def handle_events(self, event):
@@ -113,10 +146,18 @@ class Overworld:
         if self.player.rect.center != old_center:
             enemy = self.combat.player_step(self.player.rect.centerx, self.player.rect.centery)
             if enemy:
-                # create battle scene and switch
+                # start encounter animation instead of immediately switching
                 print(f"Encounter! Spawned: {type(enemy).__name__}")
-                battle = BattleScene(self.screen, self.player_name, self.player, enemy, self)
-                return ("switch_scene", battle)
+                self.pending_encounter = enemy
+                self.encounter_anim = {
+                    'enemy': enemy,
+                    'timer': 0,
+                    'duration': 1200,
+                    'fade_in': 300,
+                    'hold': 600,
+                    'fade_out': 300,
+                }
+                return None
 
         # boss area entry zone at the top center of the overworld
         entry_width = 240
@@ -130,6 +171,19 @@ class Overworld:
         if self.player.rect.top <= 0 and entry_rect.collidepoint(self.player.rect.centerx, self.player.rect.top):
             self.player.rect.midbottom = (self.screen_w // 2, self.screen_h - 40)
             boss_area = BossArea(self.screen, self.player_name, self.player, self)
+            try:
+                # Warn player on entering boss area if they haven't completed the quest
+                if not getattr(self.player, 'quest_rewards_given', False):
+                    # Immediate centered warning in boss area
+                    if hasattr(boss_area, 'set_event_dialog'):
+                        boss_area.set_event_dialog(
+                            "Warning: You haven't completed the demon quest!",
+                            duration=3000,
+                            fade_duration=500,
+                            delay=0,
+                        )
+            except Exception:
+                pass
             return ("switch_scene", boss_area)
 
         self.player.rect.x = max(0, min(self.player.rect.x, self.screen_w - self.player.rect.width))
@@ -142,11 +196,41 @@ class Overworld:
             pass
 
         # dialog timer
-        if getattr(self, 'dialog_timer', 0) > 0:
-            self.dialog_timer -= 16
-            if self.dialog_timer <= 0:
+        if getattr(self, 'dialog_delay', 0) > 0:
+            self.dialog_delay = max(0, self.dialog_delay - 16)
+            if self.dialog_delay == 0 and self.dialog_pending_text:
+                self.dialog_text = self.dialog_pending_text
+                self.dialog_timer = self.dialog_duration
+                self.dialog_pending_text = None
+        elif getattr(self, 'dialog_timer', 0) > 0:
+            self.dialog_timer = max(0, self.dialog_timer - 16)
+            if self.dialog_timer == 0:
                 self.dialog_text = None
-                self.dialog_timer = 0
+
+        if self.event_dialog is None and self.event_dialog_queue:
+            self._start_next_event_dialog()
+
+        if self.event_dialog is not None:
+            if self.event_dialog["delay"] > 0:
+                self.event_dialog["delay"] = max(0, self.event_dialog["delay"] - 16)
+                if self.event_dialog["delay"] == 0:
+                    self.event_dialog["timer"] = self.event_dialog["duration"]
+            elif self.event_dialog["timer"] > 0:
+                self.event_dialog["timer"] = max(0, self.event_dialog["timer"] - 16)
+                if self.event_dialog["timer"] == 0:
+                    self.event_dialog = None
+
+        # update encounter animation timer if present
+        if self.encounter_anim is not None:
+            self.encounter_anim['timer'] += 16
+            if self.encounter_anim['timer'] >= self.encounter_anim['duration']:
+                # spawn battle scene now
+                enemy = self.encounter_anim['enemy']
+                battle = BattleScene(self.screen, self.player_name, self.player, enemy, self)
+                # clear pending state
+                self.encounter_anim = None
+                self.pending_encounter = None
+                return ("switch_scene", battle)
 
     # DRAW
     def draw(self):
@@ -177,6 +261,53 @@ class Overworld:
                 self.quartermaster.draw(self.screen)
         except Exception:
             pass
+
+        # encounter animation overlay (pre-battle)
+        if self.encounter_anim is not None:
+            anim = self.encounter_anim
+            t = anim['timer']
+            fi = anim['fade_in']
+            hold = anim['hold']
+            fo = anim['fade_out']
+            total = anim['duration']
+            # compute alpha: fade in -> hold -> fade out
+            if t < fi:
+                alpha = int(255 * (t / max(1, fi)))
+            elif t < fi + hold:
+                alpha = 255
+            else:
+                alpha = int(255 * max(0, (total - t) / max(1, fo)))
+
+            alpha = max(0, min(255, alpha))
+
+            # darken background
+            overlay = pygame.Surface((self.screen_w, self.screen_h), pygame.SRCALPHA)
+            overlay.fill((6, 6, 12, int(180 * (alpha / 255))))
+            self.screen.blit(overlay, (0, 0))
+
+            # draw enemy image and encounter text
+            enemy = anim.get('enemy')
+            name = getattr(enemy.__class__, '__name__', 'Enemy')
+            try:
+                img = getattr(enemy, 'image', None)
+                if img:
+                    scale = min(self.screen_w * 0.5 / img.get_width(), self.screen_h * 0.5 / img.get_height(), 1.4)
+                    scaled = pygame.transform.smoothscale(img, (int(img.get_width() * scale), int(img.get_height() * scale)))
+                    rect = scaled.get_rect(center=(self.screen_w // 2, self.screen_h // 2 - 30))
+                    tmp = scaled.copy().convert_alpha()
+                    tmp.set_alpha(alpha)
+                    self.screen.blit(tmp, rect)
+            except Exception:
+                pass
+
+            # encounter text
+            try:
+                font = pygame.font.Font("assets/fonts/Pixeltype.ttf", 44)
+                txt = font.render(f"A wild {name} appears!", True, (255, 230, 160))
+                txt.set_alpha(alpha)
+                self.screen.blit(txt, txt.get_rect(center=(self.screen_w // 2, self.screen_h // 2 + 120)))
+            except Exception:
+                pass
 
         name_text = pygame.font.Font("assets/fonts/Pixeltype.ttf", 28).render(
             f"Captain: {self.player_name}",
@@ -222,4 +353,34 @@ class Overworld:
             self.screen.blit(panel, (panel_x, panel_y))
             # center text within panel
             txt_rect = txt.get_rect(center=(panel_x + panel_w // 2, panel_y + panel_h // 2))
+            self.screen.blit(txt, txt_rect)
+
+        if getattr(self, 'event_dialog', None) and self.event_dialog.get('delay', 0) == 0:
+            # Large centered warning with fade in/out in the middle of the screen
+            font = pygame.font.Font("assets/fonts/Pixeltype.ttf", 48)
+            text = self.event_dialog["text"]
+            txt = font.render(text, True, (255, 230, 160)).convert_alpha()
+            alpha = 255
+            if self.event_dialog["duration"] > 0:
+                fade = self.event_dialog["fade_duration"]
+                elapsed = self.event_dialog["duration"] - self.event_dialog["timer"]
+                if self.event_dialog["delay"] == 0:
+                    if fade > 0 and elapsed < fade:
+                        alpha = int(255 * elapsed / fade)
+                    elif fade > 0 and self.event_dialog["timer"] < fade:
+                        alpha = int(255 * self.event_dialog["timer"] / fade)
+            alpha = max(0, min(255, alpha))
+            txt.set_alpha(alpha)
+            # drop shadow
+            shadow = font.render(text, True, (18, 14, 12)).convert_alpha()
+            shadow.set_alpha(max(0, alpha - 120))
+            cx, cy = self.screen_w // 2, self.screen_h // 2
+            shadow_rect = shadow.get_rect(center=(cx + 6, cy + 6))
+            txt_rect = txt.get_rect(center=(cx, cy))
+            # subtle semi-transparent backdrop to improve readability
+            backdrop = pygame.Surface((txt_rect.width + 40, txt_rect.height + 24), pygame.SRCALPHA)
+            backdrop.fill((6, 6, 12, min(150, alpha)))
+            back_rect = backdrop.get_rect(center=(cx, cy))
+            self.screen.blit(backdrop, back_rect.topleft)
+            self.screen.blit(shadow, shadow_rect)
             self.screen.blit(txt, txt_rect)

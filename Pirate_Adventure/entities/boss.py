@@ -28,9 +28,9 @@ class EnemyBoss:
         self.max_mp = 9999
         self.mp = 9999
 
-        self.attack_power = (60, 80)
+        self.attack_power = (50, 70)
 
-        self.damage = 60
+        self.damage = 50
 
         self.target = None
         self.target_distance = None
@@ -216,6 +216,13 @@ class BossNPC:
                 enemy.damage = 70
 
             from scenes.battle import BattleScene
+            # If the boss_area can handle encounter animations, ask it to start one
+            try:
+                if hasattr(boss_area, 'start_encounter'):
+                    boss_area.start_encounter(enemy)
+                    return None
+            except Exception:
+                pass
             target_scene = getattr(boss_area, 'return_scene', boss_area)
             if hasattr(target_scene, 'return_scene'):
                 target_scene = getattr(target_scene, 'return_scene', target_scene)

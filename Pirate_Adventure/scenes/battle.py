@@ -150,6 +150,11 @@ class BattleScene:
 
         # menu rects for mouse interaction
         self.menu_rects = []
+        # victory / confetti state
+        self.boss_defeated = False
+        self.victory_start = None
+        self.victory_duration = 4000
+        self.confetti_particles = []
         # initialize dynamic player state from the authoritative entity
         try:
             self.refresh_player_weapon_state()
@@ -165,6 +170,11 @@ class BattleScene:
         self.player["hp"] = getattr(self.player_entity, "hp", self.player.get("hp", 120))
         self.player["max_mp"] = getattr(self.player_entity, "max_mp", self.player.get("max_mp", 40))
         self.player["mp"] = getattr(self.player_entity, "mp", self.player.get("mp", 40))
+        # copy any invincibility cheat flag from the entity into the battle state
+        try:
+            self.player["invincible_hp"] = getattr(self.player_entity, 'invincible_hp', False)
+        except Exception:
+            self.player["invincible_hp"] = False
 
     # INPUT
     def handle_events(self, event):
@@ -217,7 +227,7 @@ class BattleScene:
             self.player_anim_state = "attack1"
             self.player_frame_index = 0.0
             self.player_idle_index = 0.0
-            self.set_message("You slash the enemy.")
+            self.set_message("You shot the enemy.")
             self.turn = "busy"
             return None
 
@@ -303,6 +313,11 @@ class BattleScene:
             return None
 
         if choice == "Run":
+            # Prevent running from boss battles
+            if self.is_boss_battle():
+                self.set_message("You cannot run from boss battles")
+                return None
+
             success = self.combat.try_run(self.player, self.enemy_entity, base_chance=0.6)
             if success:
                 self.set_message("You successfully ran away!")
@@ -388,12 +403,42 @@ class BattleScene:
 
     # UPDATE
     def update(self):
+        # If in boss victory mode, update confetti and wait until celebration ends
+        if getattr(self, 'boss_defeated', False):
+            now = pygame.time.get_ticks()
+            # update particles
+            alive = []
+            for p in self.confetti_particles:
+                dt = 16
+                p['age'] += dt
+                # simple physics
+                p['vy'] += 0.25
+                p['x'] += p['vx']
+                p['y'] += p['vy']
+                if p['age'] < p['ttl']:
+                    alive.append(p)
+            self.confetti_particles = alive
+            # finish celebration after duration
+            if self.victory_start and now - self.victory_start >= self.victory_duration:
+                return ("switch_scene", self.return_scene)
+            return None
         # check end conditions
         if getattr(self.enemy_entity, "hp", 0) <= 0:
+            # If this is a boss, play victory celebration first (confetti + message)
+            boss_defeated = False
+            try:
+                from entities.boss import EnemyBoss
+                if isinstance(self.enemy_entity, EnemyBoss):
+                    boss_defeated = True
+            except Exception:
+                boss_defeated = False
+
             # increment player's demon kill count when applicable
+            demon_defeated = False
             try:
                 from entities.enemy_demon import EnemyDemon
                 if isinstance(self.enemy_entity, EnemyDemon):
+                    demon_defeated = True
                     try:
                         # global counter
                         self.player_entity.enemy_demon_kills += 1
@@ -404,14 +449,68 @@ class BattleScene:
                         pass
             except Exception:
                 pass
-            self.set_message("Enemy defeated!")
+
             # ensure entity HP reflects current battle HP before exiting
             try:
                 if hasattr(self.player_entity, 'hp'):
                     self.player_entity.hp = int(self.player.get('hp', getattr(self.player_entity, 'hp', 0)))
             except Exception:
                 pass
-            return ("switch_scene", self.return_scene)
+
+            # If boss defeated, start victory sequence instead of immediately switching
+            if boss_defeated and not self.boss_defeated:
+                self.boss_defeated = True
+                self.victory_start = pygame.time.get_ticks()
+                self.set_message("You defeated Blackbeard! You are now the King of the Pirates!")
+                # create confetti particles
+                cx, cy = self.screen_w // 2, self.screen_h // 2
+                for i in range(80):
+                    self.confetti_particles.append({
+                        'x': cx + random.randint(-200, 200),
+                        'y': cy - 40 + random.randint(-100, 40),
+                        'vx': random.uniform(-3.5, 3.5),
+                        'vy': random.uniform(-6.0, -1.5),
+                        'color': (random.randint(40, 255), random.randint(40, 255), random.randint(40, 255)),
+                        'ttl': random.randint(1800, 3200),
+                        'age': 0,
+                        'size': random.randint(4, 10),
+                    })
+                # mark quest rewards if applicable
+                try:
+                    if hasattr(self.player_entity, 'quest_rewards_given'):
+                        self.player_entity.quest_rewards_given = True
+                except Exception:
+                    pass
+                # keep in this battle scene until celebration completes
+                return None
+
+            self.set_message("Enemy defeated!")
+
+            if demon_defeated:
+                try:
+                    # Only trigger the storm warning once, and only when the player
+                    # has reached 5 quest demon kills.
+                    if (not getattr(self.player_entity, 'storm_warning_shown', False)) and getattr(self.player_entity, 'quest_demon_kills', 0) >= 5:
+                        if hasattr(self.return_scene, 'set_event_dialog'):
+                            # primary warning shown 2s after battle
+                            self.return_scene.set_event_dialog(
+                                "A storm is approaching",
+                                duration=3000,
+                                fade_duration=500,
+                                delay=2000,
+                            )
+                            # follow-up message scheduled to appear after the first finishes
+                            self.return_scene.set_event_dialog(
+                                "You've been warned",
+                                duration=3000,
+                                fade_duration=500,
+                                delay=2000 + 3000,
+                            )
+                        self.player_entity.storm_warning_shown = True
+                except Exception:
+                    pass
+
+            # on non-boss fights, exit immediately
             return ("switch_scene", self.return_scene)
 
         if self.player["hp"] <= 0:
@@ -803,3 +902,12 @@ class BattleScene:
         scroll_x, scroll_y = self.scroll_pos
         scroll_w, scroll_h = self.scroll_size
         self.screen.blit(msg_text, msg_text.get_rect(center=(scroll_x + scroll_w // 2, scroll_y + scroll_h // 2)))
+
+        # draw confetti particles for boss victory
+        if getattr(self, 'confetti_particles', None):
+            for p in self.confetti_particles:
+                try:
+                    rect = pygame.Rect(int(p['x']), int(p['y']), p.get('size', 6), p.get('size', 6))
+                    pygame.draw.rect(self.screen, p['color'], rect)
+                except Exception:
+                    pass

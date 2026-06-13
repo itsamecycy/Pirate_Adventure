@@ -33,6 +33,9 @@ class PauseMenu:
 
         self.status_message = "Paused"
         self.status_timer = 0
+        # cheat counter for pressing '9' five times
+        self.cheat9_counter = 0
+        self.cheat9_active = False
         # ensure pause options reflect current encounter state
         self.update_pause_options()
 
@@ -299,6 +302,30 @@ class PauseMenu:
     # INPUT
     def handle_events(self, event):
         if event.type == pygame.KEYDOWN:
+            # global pause cheat: press 9 five times to enable HP invincibility
+            if event.key == pygame.K_9:
+                self.cheat9_counter = getattr(self, 'cheat9_counter', 0) + 1
+                if self.cheat9_counter >= 5:
+                    player = getattr(self.overworld, 'player', None)
+                    if player is not None:
+                        try:
+                            current = bool(getattr(player, 'invincible_hp', False))
+                            # toggle on every 5 presses
+                            player.invincible_hp = not current
+                            self.cheat9_active = bool(player.invincible_hp)
+                            if player.invincible_hp:
+                                self.set_status("Cheat activated: HP invincible")
+                            else:
+                                self.set_status("Cheat disabled: HP vulnerable")
+                        except Exception:
+                            pass
+                    else:
+                        self.set_status("No player found for cheat")
+                    self.cheat9_counter = 0
+                else:
+                    self.set_status(f"Cheat key {self.cheat9_counter}/5")
+                # do not consume the event; allow other handlers to process
+            
             if self.mode:
                 if event.key == pygame.K_ESCAPE:
                     self.mode = None

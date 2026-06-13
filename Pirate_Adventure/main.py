@@ -76,10 +76,12 @@ while True:
         elif result == "start_game":
             if isinstance(current_scene, CharacterCreation):
                 player_name = current_scene.name
-            current_scene = LoadingScreen(screen, player_name)
-
-        elif result == "loading_done":
-            current_scene = Overworld(screen, player_name)
+            current_scene = LoadingScreen(
+                screen,
+                player_name,
+                next_scene_factory=lambda pn=player_name: Overworld(screen, pn),
+                intro_text="The era of the pirates has come, a storm is approaching",
+            )
 
         elif result == "game_over":
             current_scene = GameOver(screen)
@@ -120,9 +122,12 @@ while True:
     elif update_result == "start_game":
         if isinstance(current_scene, CharacterCreation):
             player_name = current_scene.name
-        current_scene = LoadingScreen(screen, player_name)
-    elif update_result == "loading_done":
-        current_scene = Overworld(screen, player_name)
+        current_scene = LoadingScreen(
+            screen,
+            player_name,
+            next_scene_factory=lambda pn=player_name: Overworld(screen, pn),
+            intro_text="The era of the pirates has come, a storm is approaching",
+        )
     elif update_result == "back_to_menu":
         current_scene = MainMenu(screen)
     elif update_result == "game_over":

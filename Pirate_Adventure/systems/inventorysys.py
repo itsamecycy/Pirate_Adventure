@@ -14,13 +14,13 @@ class InventorySystem:
         },
         "Golden Pistol": {
             "category": "gun",
-            "attack_power": (40, 60),
-            "description": "The gun of a once-known pirate. DMG: 40-60",
+            "attack_power": (60, 80),
+            "description": "The gun of a once-known pirate. DMG: 60-80",
         },
         "Falchion Sword": {
             "category": "sword",
-            "attack_power": (50, 75),
-            "description": "The sword of a fine pirate. DMG: 50-75",
+            "attack_power": (70, 90),
+            "description": "The sword of a fine pirate. DMG: 70-90",
         },
     }
 

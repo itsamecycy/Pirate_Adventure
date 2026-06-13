@@ -72,6 +72,7 @@ class Player:
         self.quest_active = False
         self.blessed = False
         self.quest_rewards_given = False
+        self.storm_warning_shown = False
         self.inventory_system = InventorySystem(self)
 
         # start state
