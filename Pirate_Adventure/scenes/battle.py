@@ -113,8 +113,8 @@ class BattleScene:
         self.player_base_x = 170
         self.player_base_y = self.screen_h - 20
         self.enemy_scale = 2
-        self.boss_scale = 2.2  # change this to adjust boss size in boss battles
-        self.boss_attack_scale = 0.3  # scale for boss attack effect animation
+        self.boss_scale = 2  # change this to adjust boss size in boss battles
+        self.boss_attack_scale = 0.8  # scale for boss attack effect animation
 
         # player animation frames from newplayer1 assets
         self.frame_width = 64
@@ -133,6 +133,9 @@ class BattleScene:
         self.player_anim_state = "idle"
         self.player_frame_index = 0.0
         self.player_idle_index = 0.0
+        self.player_anim_state = "idle"
+        self.player_frame_index = 0.0
+        self.player_idle_index = 0.0
         self.player_anim_speed = 14 / 60.0
         self.player_idle_speed = 6 / 60.0
         self.player_action = None
@@ -140,7 +143,7 @@ class BattleScene:
         self.skill_options = ["Fireball", "Double Slash", "Back"]
         self.double_slash_power = (16, 28)
 
-        self.boss_attack_frames = self.load_gif_frames(os.path.join("assets", "boss_attack", "boss_attack.gif"))
+        self.boss_attack_frames = self.load_gif_frames(os.path.join("assets", "boss_npc", "boss_attack.gif"))
         self.boss_attack_frame_index = 0.0
         self.boss_attack_speed = 10 / 60.0
         self.boss_attack_playing = False
