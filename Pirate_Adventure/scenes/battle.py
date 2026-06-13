@@ -114,6 +114,7 @@ class BattleScene:
         self.player_base_y = self.screen_h - 20
         self.enemy_scale = 2
         self.boss_scale = 2.2  # change this to adjust boss size in boss battles
+        self.boss_attack_scale = 0.3  # scale for boss attack effect animation
 
         # player animation frames from newplayer1 assets
         self.frame_width = 64
@@ -138,6 +139,11 @@ class BattleScene:
         self.skill_menu_open = False
         self.skill_options = ["Fireball", "Double Slash", "Back"]
         self.double_slash_power = (16, 28)
+
+        self.boss_attack_frames = self.load_gif_frames(os.path.join("assets", "boss_attack", "boss_attack.gif"))
+        self.boss_attack_frame_index = 0.0
+        self.boss_attack_speed = 10 / 60.0
+        self.boss_attack_playing = False
 
         # menu rects for mouse interaction
         self.menu_rects = []
@@ -356,6 +362,27 @@ class BattleScene:
         except Exception:
             return None
 
+    def load_gif_frames(self, path):
+        frames = []
+        if not os.path.isfile(path):
+            return frames
+        try:
+            from PIL import Image
+            image = Image.open(path)
+            frame_count = getattr(image, 'n_frames', 1)
+            for frame_index in range(frame_count):
+                image.seek(frame_index)
+                frame = image.convert('RGBA')
+                data = frame.tobytes()
+                surface = pygame.image.frombuffer(data, frame.size, 'RGBA').convert_alpha()
+                frames.append(surface.copy())
+        except Exception:
+            pass
+        return frames
+
+    def is_boss_battle(self):
+        return getattr(self.enemy_entity, '__class__', None) and getattr(self.enemy_entity.__class__, '__name__', '') == 'EnemyBoss'
+
     # UPDATE
     def update(self):
         # check end conditions
@@ -422,7 +449,12 @@ class BattleScene:
                     self.player_frame_index = 0.0
                     self.player_idle_index = 0.0
                     self.player_action = None
-                    self.turn = "enemy_hurt"
+                    if self.boss_attack_frames and self.is_boss_battle():
+                        self.boss_attack_playing = True
+                        self.boss_attack_frame_index = 0.0
+                        self.turn = "boss_attack_effect"
+                    else:
+                        self.turn = "enemy_hurt"
         elif self.player_anim_state == "attack2":
             self.player_frame_index += self.player_anim_speed
             if self.player_frame_index >= len(self.player_attack2_frames):
@@ -444,12 +476,24 @@ class BattleScene:
                 self.player_frame_index = 0.0
                 self.player_idle_index = 0.0
                 self.player_action = None
-                self.turn = "enemy_hurt"
+                if self.boss_attack_frames and self.is_boss_battle():
+                    self.boss_attack_playing = True
+                    self.boss_attack_frame_index = 0.0
+                    self.turn = "boss_attack_effect"
+                else:
+                    self.turn = "enemy_hurt"
         else:
             if self.player_idle_frames:
                 self.player_idle_index += self.player_idle_speed
                 if self.player_idle_index >= len(self.player_idle_frames):
                     self.player_idle_index = 0.0
+
+        if self.turn == "boss_attack_effect":
+            self.boss_attack_frame_index += self.boss_attack_speed
+            if self.boss_attack_frame_index >= len(self.boss_attack_frames):
+                self.boss_attack_playing = False
+                self.turn = "enemy_hurt"
+            return None
 
         # update enemy animation/state
         try:
@@ -603,8 +647,24 @@ class BattleScene:
             enemy_rect = enemy_img.get_rect(center=(center_x + 260, self.screen.get_height() // 2 - 40))
             self.screen.blit(enemy_img, enemy_rect)
 
-            # boss NPC overlay for boss battle
-            if getattr(self, 'boss_npc', None) is not None:
+            if self.boss_attack_playing and self.boss_attack_frames:
+                try:
+                    idx = int(self.boss_attack_frame_index) % len(self.boss_attack_frames)
+                    effect_img = self.boss_attack_frames[idx]
+                    scaled_effect = pygame.transform.smoothscale(
+                        effect_img,
+                        (
+                            int(effect_img.get_width() * self.boss_attack_scale),
+                            int(effect_img.get_height() * self.boss_attack_scale),
+                        ),
+                    )
+                    effect_rect = scaled_effect.get_rect(center=enemy_rect.center)
+                    self.screen.blit(scaled_effect, effect_rect)
+                except Exception:
+                    pass
+
+            # boss NPC overlay for boss battle (hide during boss attack effect)
+            if not self.boss_attack_playing and getattr(self, 'boss_npc', None) is not None:
                 try:
                     if hasattr(self.boss_npc, 'images') and self.boss_npc.images:
                         idx = int(self.boss_npc.frame) % len(self.boss_npc.images)
