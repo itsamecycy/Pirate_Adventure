@@ -10,6 +10,7 @@ from scenes.settings import Settings
 from scenes.loadgame import LoadGame
 from scenes.loading import LoadingScreen
 from maps.overworld import Overworld
+from scenes.battle import BattleScene
 from scenes.pause import PauseMenu
 from scenes.gameover import GameOver
 
