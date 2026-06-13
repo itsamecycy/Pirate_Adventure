@@ -114,7 +114,7 @@ class BattleScene:
         self.player_base_y = self.screen_h - 20
         self.enemy_scale = 2
         self.boss_scale = 2  # change this to adjust boss size in boss battles
-        self.boss_attack_scale = 0.8  # scale for boss attack effect animation
+        self.boss_attack_scale = 0.4  # scale for boss attack effect animation
 
         # player animation frames from newplayer1 assets
         self.frame_width = 64
