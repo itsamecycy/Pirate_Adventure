@@ -22,6 +22,10 @@ SCREEN_HEIGHT = 720
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Pirate Adventure")
 
+icon_surface = pygame.image.load(os.path.join("assets", "ui", "game-logo.png"))
+icon_surface = pygame.transform.smoothscale(icon_surface, (32, 32))
+pygame.display.set_icon(icon_surface)
+
 clock = pygame.time.Clock()
 
 # START SCENE
