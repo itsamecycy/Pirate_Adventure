@@ -109,6 +109,7 @@ class PauseMenu:
                 "resolution": self.settings_system.current_resolution(),
                 "fullscreen": self.settings_system.fullscreen,
                 "volume": self.settings_system.volume,
+                "sfx_volume": self.settings_system.sfx_volume,
             },
         }
         if self.save_data.save_slot(index, save_state):
@@ -195,6 +196,7 @@ class PauseMenu:
             self.settings_system.set_resolution(tuple(settings.get("resolution")))
         self.settings_system.set_fullscreen(settings.get("fullscreen", self.settings_system.fullscreen))
         self.settings_system.set_volume(settings.get("volume", self.settings_system.volume))
+        self.settings_system.set_sfx_volume(settings.get("sfx_volume", self.settings_system.sfx_volume))
 
         self.screen = self.settings_system.screen
         self.pause_system.update_screen(self.screen)
@@ -282,22 +284,33 @@ class PauseMenu:
 
         current_hp = getattr(player, 'hp', 0)
         max_hp = getattr(player, 'max_hp', 120)
-        if current_hp >= max_hp:
-            self.set_status("HP is already full")
+        current_mp = getattr(player, 'mp', 0)
+        max_mp = getattr(player, 'max_mp', 40)
+        if current_hp >= max_hp and current_mp >= max_mp:
+            self.set_status("HP and MP are already full")
             return
 
         heal_amount = 40
+        mp_restore_amount = 20
         new_hp = min(max_hp, current_hp + heal_amount)
+        new_mp = min(max_mp, current_mp + mp_restore_amount)
+
         if hasattr(player, 'items'):
             player.items['Potion'] = player.items.get('Potion', 1) - 1
             if player.items['Potion'] <= 0:
                 player.items.pop('Potion', None)
 
         player.hp = new_hp
+        player.mp = new_mp
         if hasattr(player, 'inventory_system'):
             player.inventory_system.sync_to_owner()
 
-        self.set_status(f"Healed {new_hp - current_hp} HP")
+        status_msg = []
+        if new_hp > current_hp:
+            status_msg.append(f"Healed {new_hp - current_hp} HP")
+        if new_mp > current_mp:
+            status_msg.append(f"Restored {new_mp - current_mp} MP")
+        self.set_status(", ".join(status_msg))
 
     # INPUT
     def handle_events(self, event):

@@ -4,7 +4,7 @@ import re
 import pygame
 import random
 from systems.combatsys import CombatSystem
-from systems.settingsys import SFX_VOLUME
+import systems.settingsys
 
 
 class BattleScene:
@@ -295,10 +295,12 @@ class BattleScene:
         if choice == "Item":
             ok, msg, val = self.combat.use_item(self.player, "potion")
             self.set_message(msg)
-            # persist healed HP back to the player entity
+            # persist healed HP and MP back to the player entity
             try:
                 if hasattr(self.player_entity, 'hp'):
                     self.player_entity.hp = int(self.player.get('hp', getattr(self.player_entity, 'hp', 0)))
+                if hasattr(self.player_entity, 'mp'):
+                    self.player_entity.mp = int(self.player.get('mp', getattr(self.player_entity, 'mp', 40)))
             except Exception:
                 pass
             # Trigger enemy attack animation
@@ -321,6 +323,13 @@ class BattleScene:
             success = self.combat.try_run(self.player, self.enemy_entity, base_chance=0.6)
             if success:
                 self.set_message("You successfully ran away!")
+                try:
+                    if hasattr(self.player_entity, 'hp'):
+                        self.player_entity.hp = int(self.player.get('hp', getattr(self.player_entity, 'hp', 0)))
+                    if hasattr(self.player_entity, 'mp'):
+                        self.player_entity.mp = int(self.player.get('mp', getattr(self.player_entity, 'mp', 40)))
+                except Exception:
+                    pass
                 return ("switch_scene", self.return_scene)
             else:
                 self.set_message("Failed to run away!")
@@ -450,10 +459,12 @@ class BattleScene:
             except Exception:
                 pass
 
-            # ensure entity HP reflects current battle HP before exiting
+            # ensure entity HP and MP reflect current battle HP and MP before exiting
             try:
                 if hasattr(self.player_entity, 'hp'):
                     self.player_entity.hp = int(self.player.get('hp', getattr(self.player_entity, 'hp', 0)))
+                if hasattr(self.player_entity, 'mp'):
+                    self.player_entity.mp = int(self.player.get('mp', getattr(self.player_entity, 'mp', 40)))
             except Exception:
                 pass
 
@@ -536,7 +547,7 @@ class BattleScene:
                     # play gunshot SFX for attack if available
                     try:
                         if getattr(self, 'sfx_gunshot', None):
-                            self.sfx_gunshot.set_volume(max(0.0, min(1.0, SFX_VOLUME / 100)))
+                            self.sfx_gunshot.set_volume(max(0.0, min(1.0, systems.settingsys.SFX_VOLUME / 100)))
                             self.sfx_gunshot.play()
                     except Exception:
                         pass
@@ -563,7 +574,7 @@ class BattleScene:
                 # play slash SFX for double slash if available
                 try:
                     if getattr(self, 'sfx_slash', None):
-                        self.sfx_slash.set_volume(max(0.0, min(1.0, SFX_VOLUME / 100)))
+                        self.sfx_slash.set_volume(max(0.0, min(1.0, systems.settingsys.SFX_VOLUME / 100)))
                         self.sfx_slash.play()
                 except Exception:
                     pass
@@ -653,6 +664,8 @@ class BattleScene:
             try:
                 if hasattr(self.player_entity, 'hp'):
                     self.player_entity.hp = int(self.player.get('hp', getattr(self.player_entity, 'hp', 0)))
+                if hasattr(self.player_entity, 'mp'):
+                    self.player_entity.mp = int(self.player.get('mp', getattr(self.player_entity, 'mp', 40)))
             except Exception:
                 pass
             self.turn = "player"
@@ -669,6 +682,8 @@ class BattleScene:
             try:
                 if hasattr(self.player_entity, 'hp'):
                     self.player_entity.hp = int(self.player.get('hp', getattr(self.player_entity, 'hp', 0)))
+                if hasattr(self.player_entity, 'mp'):
+                    self.player_entity.mp = int(self.player.get('mp', getattr(self.player_entity, 'mp', 40)))
             except Exception:
                 pass
             self.turn = "player"

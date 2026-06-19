@@ -36,9 +36,7 @@ class SettingsSystem:
         self.apply_display_mode()
         self.set_volume(self.volume)
         # SFX volume (stored separately from music)
-        self.sfx_volume = self.volume
-        global SFX_VOLUME
-        SFX_VOLUME = self.sfx_volume
+        self.sfx_volume = SFX_VOLUME
 
     # -------------------------
     # DISPLAY / WINDOW MODE

@@ -362,6 +362,7 @@ class CombatSystem:
         if item_name == "potion":
 
             heal = 40
+            mp_restore = 20
 
             hp = int(
                 self._get(
@@ -394,9 +395,53 @@ class CombatSystem:
                 new_hp
             )
 
+            mp = int(
+                self._get(
+                    user,
+                    "mp",
+                    self._get(
+                        user,
+                        "max_mp",
+                        0
+                    )
+                )
+            )
+
+            max_mp = int(
+                self._get(
+                    user,
+                    "max_mp",
+                    mp
+                )
+            )
+
+            new_mp = min(
+                max_mp,
+                mp + mp_restore
+            )
+
+            self._set(
+                user,
+                "mp",
+                new_mp
+            )
+
+            msg_parts = []
+            if new_hp > hp:
+                msg_parts.append(f"Healed {new_hp - hp} HP")
+            if new_mp > mp:
+                msg_parts.append(f"Restored {new_mp - mp} MP")
+
+            if not msg_parts:
+                return (
+                    True,
+                    "Potion used, no effect",
+                    0
+                )
+
             return (
                 True,
-                f"Healed {new_hp - hp} HP",
+                " & ".join(msg_parts),
                 new_hp - hp
             )
 

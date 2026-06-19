@@ -13,6 +13,7 @@ from maps.overworld import Overworld
 from scenes.battle import BattleScene
 from scenes.pause import PauseMenu
 from scenes.gameover import GameOver
+from scenes.intro import IntroScene
 
 pygame.init()
 
@@ -83,8 +84,10 @@ while True:
             current_scene = LoadingScreen(
                 screen,
                 player_name,
-                next_scene_factory=lambda pn=player_name: Overworld(screen, pn),
-                intro_text="The era of the pirates has come, a storm is approaching",
+                next_scene_factory=lambda pn=player_name: IntroScene(
+                    screen, pn,
+                    next_scene_factory=lambda _pn=pn: Overworld(screen, _pn),
+                ),
             )
 
         elif result == "game_over":
@@ -129,8 +132,10 @@ while True:
         current_scene = LoadingScreen(
             screen,
             player_name,
-            next_scene_factory=lambda pn=player_name: Overworld(screen, pn),
-            intro_text="The era of the pirates has come, a storm is approaching",
+            next_scene_factory=lambda pn=player_name: IntroScene(
+                screen, pn,
+                next_scene_factory=lambda _pn=pn: Overworld(screen, _pn),
+            ),
         )
     elif update_result == "back_to_menu":
         current_scene = MainMenu(screen)

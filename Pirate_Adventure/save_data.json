@@ -2,14 +2,14 @@
     "slots": [
         {
             "player_name": "Jack",
-            "player_x": 664,
-            "player_y": 152,
-            "player_hp": 120,
-            "player_max_hp": 120,
+            "player_x": 552,
+            "player_y": 452,
+            "player_hp": 200,
+            "player_max_hp": 200,
             "player_mp": 40,
             "player_max_mp": 40,
             "player_items": {
-                "Potion": 2,
+                "Potion": 1,
                 "Pistol": 1,
                 "Cutlass": 1,
                 "Golden Pistol": 1,
@@ -22,8 +22,8 @@
                 "Healthy"
             ],
             "player_equipped_weapons": {
-                "gun": "Pistol",
-                "sword": "Cutlass"
+                "gun": "Golden Pistol",
+                "sword": "Falchion Sword"
             },
             "player_quest_demon_kills": 10,
             "player_quest_active": true,
@@ -35,9 +35,9 @@
                     720
                 ],
                 "fullscreen": false,
-                "volume": 96
+                "volume": 0
             },
-            "saved_at": "2026-06-13T15:59:50.618492Z"
+            "saved_at": "2026-06-19T11:44:20.536911Z"
         },
         null,
         null,

@@ -53,8 +53,14 @@ class Quartermaster:
         kills = getattr(player, 'quest_demon_kills', 0)
         rewards_given = getattr(player, 'quest_rewards_given', False)
 
+        # Fully restore HP and MP
+        player.hp = getattr(player, 'max_hp', 120)
+        player.mp = getattr(player, 'max_mp', 40)
+        if hasattr(player, 'inventory_system') and player.inventory_system is not None:
+            player.inventory_system.sync_to_owner()
+
         if rewards_given:
-            overworld.dialog_text = "Quartermaster: You already received the rewards for completing the quest."
+            overworld.dialog_text = "Quartermaster: You already received the rewards for completing the quest. Your HP and MP have been fully restored!"
             overworld.dialog_timer = 3000
             return
 
@@ -63,7 +69,7 @@ class Quartermaster:
             player.quest_active = True
             # don't reset existing progress, but ensure counter exists
             player.quest_demon_kills = getattr(player, 'quest_demon_kills', 0)
-            overworld.dialog_text = "Quartermaster: If you want to defeat Black Beard, defeat 10 demons and I will reward you with powerful weapons."
+            overworld.dialog_text = "Quartermaster: If you want to defeat Black Beard, defeat 10 demons and I will reward you with powerful weapons. (HP & MP restored)"
             overworld.dialog_timer = 5000
             return
 
@@ -85,8 +91,8 @@ class Quartermaster:
 
             # mark rewards given to prevent repeats (separate from 'blessed')
             player.quest_rewards_given = True
-            overworld.dialog_text = "Quartermaster: Excellent work! Here are your rewards: Golden Pistol and Falchion Sword!"
+            overworld.dialog_text = "Quartermaster: Excellent work! Here are your rewards: Golden Pistol and Falchion Sword! (HP & MP restored)"
             overworld.dialog_timer = 4000
         else:
-            overworld.dialog_text = f"Quartermaster: You have defeated {kills}/10 demons. Keep going." 
+            overworld.dialog_text = f"Quartermaster: You have defeated {kills}/10 demons. Keep going. (HP & MP restored)" 
             overworld.dialog_timer = 3500

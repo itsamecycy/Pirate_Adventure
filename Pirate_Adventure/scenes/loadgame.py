@@ -78,6 +78,7 @@ class LoadGame:
             settings_system.set_resolution(tuple(settings.get("resolution")))
         settings_system.set_fullscreen(settings.get("fullscreen", False))
         settings_system.set_volume(settings.get("volume", 100))
+        settings_system.set_sfx_volume(settings.get("sfx_volume", 100))
 
         self.screen = settings_system.screen
 
@@ -87,6 +88,21 @@ class LoadGame:
             save_slot.get("player_x"),
             save_slot.get("player_y")
         )
+        new_overworld.player.hp = save_slot.get("player_hp", getattr(new_overworld.player, 'hp', 120))
+        new_overworld.player.max_hp = save_slot.get("player_max_hp", getattr(new_overworld.player, 'max_hp', 120))
+        new_overworld.player.mp = save_slot.get("player_mp", getattr(new_overworld.player, 'mp', 40))
+        new_overworld.player.max_mp = save_slot.get("player_max_mp", getattr(new_overworld.player, 'max_mp', 40))
+        new_overworld.player.items = save_slot.get("player_items", getattr(new_overworld.player, 'items', {}))
+        new_overworld.player.skills = save_slot.get("player_skills", getattr(new_overworld.player, 'skills', []))
+        new_overworld.player.status_effects = save_slot.get("player_status", getattr(new_overworld.player, 'status_effects', ['Healthy']))
+        new_overworld.player.equipped_weapons = save_slot.get("player_equipped_weapons", getattr(new_overworld.player, 'equipped_weapons', {"gun": None, "sword": None}))
+        # restore quest and misc flags
+        new_overworld.player.quest_demon_kills = save_slot.get("player_quest_demon_kills", getattr(new_overworld.player, 'quest_demon_kills', 0))
+        new_overworld.player.quest_active = save_slot.get("player_quest_active", getattr(new_overworld.player, 'quest_active', False))
+        new_overworld.player.quest_rewards_given = save_slot.get("player_quest_rewards_given", getattr(new_overworld.player, 'quest_rewards_given', False))
+        new_overworld.player.blessed = save_slot.get("player_blessed", getattr(new_overworld.player, 'blessed', False))
+
+        new_overworld.player.inventory_system.sync_from_owner()
         player_name = save_slot.get("player_name", "Captain")
         return ("start_loading", player_name, lambda: new_overworld)
 
