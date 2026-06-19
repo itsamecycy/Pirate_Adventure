@@ -73,6 +73,10 @@ Run the game:
 python main.py
 ```
 
+```bash
+or just download exe file inside dist folder
+```
+
 ## 🎯 Goals of This Project
 
 - Practice game development using Python
