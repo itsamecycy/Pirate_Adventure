@@ -23,6 +23,7 @@ This project was created for learning, experimentation, and improving game devel
 
 - Python
 - Pygame
+- Pyinstaller
 
 ## 📂 Project Structure
 
